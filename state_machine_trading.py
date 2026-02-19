@@ -6,46 +6,37 @@ No efficiency losses.
 
 import pandas as pd
 
-# Setup cosntants
-BESS_SIZE = 20 # kWH
-BESS_INVERTER_CAPACITY = 5 # kW
-BUY_THRESHOLD = 10 # $/MWH
-SELL_THRESHOLD = 70 # $/MWH
-BATTERY_INITIAL_STATE = 0
+from battery_plot import plot_battery_trading
+from bess_simulator import BESS_SIZE, simulate
+from strategy_state_machine import make_strategy
 
-price_df = pd.read_csv('data/price_JAN26.csv')
+BUY_THRESHOLD  = 20   # $/MWh
+SELL_THRESHOLD = 70   # $/MWh
 
-BATTERY_STATE = BATTERY_INITIAL_STATE
-BUY_COST = 0
-SELL_REVENUE = 0
+if __name__ == "__main__":
+    price_df   = pd.read_csv("data/price_JAN26.csv")
+    strategy   = make_strategy(BUY_THRESHOLD, SELL_THRESHOLD)
+    results_df = simulate(price_df, strategy)
 
-count_sell = 0
-count_buy = 0
-count_hold = 0
+    # ── Summary ───────────────────────────────────────────────────────────────
+    print(f"Final Battery State: {results_df['battery_state'].iloc[-1]:.2f} kWh")
+    print(f"Total Buy Cost:      ${results_df['cumulative_cost'].iloc[-1]:.2f}")
+    print(f"Total Sell Revenue:  ${results_df['cumulative_revenue'].iloc[-1]:.2f}")
+    print(f"Net Profit:          ${results_df['cumulative_profit'].iloc[-1]:.2f}")
+    print()
+    buy_count  = (results_df["action"] == "buy").sum()
+    sell_count = (results_df["action"] == "sell").sum()
+    hold_count = (results_df["action"] == "hold").sum()
+    print(f"Buy Actions:  {buy_count}")
+    print(f"Sell Actions: {sell_count}")
+    print(f"Hold Actions: {hold_count}")
 
-for index, row in price_df.iterrows():
-    time = row['SETTLEMENTDATE']
-    rrp = row['RRP']
-    demand = row['TOTALDEMAND']
-
-    if rrp < BUY_THRESHOLD and BATTERY_STATE < BESS_SIZE:
-        BATTERY_STATE = min(BESS_SIZE, BATTERY_STATE + BESS_INVERTER_CAPACITY * (5/60)) # Charge at full inverter capacity for 5 minutes
-        BUY_COST += BESS_INVERTER_CAPACITY * (5/60) * rrp / 1000 # Convert to MWH
-        count_buy += 1
-
-    elif rrp >= SELL_THRESHOLD and BATTERY_STATE > 0:
-        BATTERY_STATE = max(0, BATTERY_STATE - BESS_INVERTER_CAPACITY * (5/60)) # Discharge at full inverter capacity for 5 minutes
-        SELL_REVENUE += BESS_INVERTER_CAPACITY * (5/60) * rrp / 1000 # Convert to MWH
-        count_sell += 1
-    else:
-        count_hold += 1
-
-
-print(f"Final Battery State: {BATTERY_STATE:.2f} kWh")
-print(f"Total Buy Cost: ${BUY_COST:.2f}")
-print(f"Total Sell Revenue: ${SELL_REVENUE:.2f}")
-print(f"Net Profit: ${SELL_REVENUE - BUY_COST:.2f}")
-
-print(f"Buy Actions: {count_buy}")
-print(f"Sell Actions: {count_sell}")
-print(f"Hold Actions: {count_hold}")
+    # ── Plot ──────────────────────────────────────────────────────────────────
+    plot_battery_trading(
+        results_df,
+        title="State Machine Trading -- January 2026",
+        output_path="state_machine_jan26.html",
+        bess_size=BESS_SIZE,
+        buy_threshold=BUY_THRESHOLD,
+        sell_threshold=SELL_THRESHOLD,
+    )
