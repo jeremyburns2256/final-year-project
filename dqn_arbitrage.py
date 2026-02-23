@@ -20,15 +20,15 @@ from utils.bess_simulator import BESS_SIZE, simulate
 TRAIN_CSV = "data/price_JAN26.csv"
 TEST_CSV = "data/price_FEB26.csv"
 N_LAGS = 12  # how many past prices to use as features
-EPISODES = 100  # number of training episodes
+EPISODES = 30  # number of training episodes (reduced for faster training)
 BATCH_SIZE = 64
 GAMMA = 0.95  # discount factor for future rewards
 EPSILON_START = 1.0  # initial exploration rate
 EPSILON_END = 0.01  # final exploration rate
-EPSILON_DECAY = 0.995  # decay rate per episode
+EPSILON_DECAY = 0.95  # decay rate per episode (faster decay)
 LEARNING_RATE = 0.001
-MEMORY_SIZE = 10000  # experience replay buffer size
-TARGET_UPDATE_FREQ = 10  # update target network every N episodes
+MEMORY_SIZE = 5000  # experience replay buffer size (reduced)
+TARGET_UPDATE_FREQ = 5  # update target network every N episodes (more frequent)
 SEED = 42
 
 
@@ -159,7 +159,6 @@ class DQNAgent:
         """Build neural network for Q-function approximation."""
         model = tf.keras.Sequential([
             tf.keras.layers.Input(shape=(self.state_size,)),
-            tf.keras.layers.Dense(128, activation='relu'),
             tf.keras.layers.Dense(64, activation='relu'),
             tf.keras.layers.Dense(32, activation='relu'),
             tf.keras.layers.Dense(self.action_size, activation='linear')  # Q-values
