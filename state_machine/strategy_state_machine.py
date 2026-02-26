@@ -15,17 +15,24 @@ def make_strategy(buy_threshold: float, sell_threshold: float):
 
     Buys when rrp < buy_threshold, sells when rrp >= sell_threshold.
     The simulator enforces SoC limits — the strategy only expresses intent.
+    Solar and load are passed through but not used by this strategy; the
+    simulator handles passive self-consumption flows automatically in 'hold'.
 
     Parameters
     ----------
-    buy_threshold  : Charge when RRP is strictly below this value ($/MWh).
-    sell_threshold : Discharge when RRP is at or above this value ($/MWh).
+    buy_threshold  : Charge from grid when RRP is strictly below this value ($/MWh).
+    sell_threshold : Discharge to grid when RRP is at or above this value ($/MWh).
 
     Returns
     -------
-    strategy(rrp: float, battery_state: float) -> 'buy'|'sell'|'hold'
+    strategy(rrp, battery_state, solar_kw, load_kw) -> 'buy'|'sell'|'hold'
     """
-    def strategy(rrp: float, battery_state: float) -> str:
+    def strategy(
+        rrp: float,
+        battery_state: float,
+        solar_kw: float = 0.0,
+        load_kw: float = 0.0,
+    ) -> str:
         if rrp < buy_threshold:
             return "buy"
         if rrp >= sell_threshold:

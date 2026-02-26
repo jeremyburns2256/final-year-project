@@ -2,7 +2,7 @@
 optimise_thresholds.py
 
 Grid-searches buy/sell price thresholds to maximise net profit for state-machine
-BESS trading.
+BESS trading. Supports optional solar and load columns for prosumer scenarios.
 """
 
 import numpy as np
@@ -14,6 +14,8 @@ from state_machine.strategy_state_machine import make_strategy
 
 def optimise_thresholds_brute(
     price_df: pd.DataFrame,
+    solar_col: str | None = None,
+    load_col: str | None = None,
     n_steps: int = 60,
     verbose: bool = True,
 ) -> tuple[float, float, float]:
@@ -22,9 +24,12 @@ def optimise_thresholds_brute(
 
     Parameters
     ----------
-    price_df : DataFrame with a 'RRP' column ($/MWh).
-    n_steps  : Number of candidate values along each axis of the grid.
-    verbose  : Print progress and results to stdout.
+    price_df  : DataFrame with a 'RRP' column ($/MWh) and optionally
+                solar_col and/or load_col columns.
+    solar_col : Column name for solar generation (kW). None = no solar.
+    load_col  : Column name for household load (kW).  None = no load.
+    n_steps   : Number of candidate values along each axis of the grid.
+    verbose   : Print progress and results to stdout.
 
     Returns
     -------
@@ -32,6 +37,9 @@ def optimise_thresholds_brute(
     """
     rrp_arr    = price_df["RRP"].to_numpy(dtype=np.float64)
     rrp_series = price_df["RRP"]
+
+    solar_arr = price_df[solar_col].to_numpy(dtype=np.float64) if solar_col else None
+    load_arr  = price_df[load_col].to_numpy(dtype=np.float64)  if load_col  else None
 
     buy_values  = np.linspace(rrp_arr.min(),             rrp_series.quantile(0.50), n_steps)
     sell_values = np.linspace(rrp_series.quantile(0.50), rrp_series.quantile(0.99), n_steps)
@@ -50,7 +58,12 @@ def optimise_thresholds_brute(
         for sell_t in sell_values:
             if buy_t >= sell_t:
                 continue
-            profit = simulate_profit(rrp_arr, make_strategy(buy_t, sell_t))
+            profit = simulate_profit(
+                rrp_arr,
+                make_strategy(buy_t, sell_t),
+                solar_arr=solar_arr,
+                load_arr=load_arr,
+            )
             if profit > best_profit:
                 best_profit         = profit
                 best_buy_threshold  = buy_t

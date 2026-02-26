@@ -1,8 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python:*)",
-      "Bash(PYTHONPATH=. python:*)"
+      "Bash(cd:*)",
+      "Bash(cd \"C:\\\\Users\\\\Jeremy\\\\OneDrive - The University Of Newcastle\\\\5. Fifth Year\\\\ELEC4840A\\\\Code\" && python -c \"\nfrom state_machine_trading import run_trading_simulation\nfrom plotting.battery_plot import plot_battery_trading\nfrom utils.bess_simulator import BESS_SIZE\nimport os; os.makedirs\\('plots', exist_ok=True\\)\n\n# Test 1: solar + load\nr = run_trading_simulation\\(\n    optimise_thresholds=False, plot=False, verbose=False,\n    train_solar_csv='data/solar_JAN26.csv', train_load_csv='data/load_JAN26.csv',\n    test_solar_csv='data/solar_FEB26.csv',  test_load_csv='data/load_FEB26.csv',\n\\)\nplot_battery_trading\\(r['results_df'], output_path='plots/test_solar_load.html',\n    bess_size=BESS_SIZE, buy_threshold=r['buy_threshold'],\n    sell_threshold=r['sell_threshold'], show_plot=False\\)\nprint\\('Solar+load plot: OK'\\)\n\n# Test 2: arbitrage only\nr2 = run_trading_simulation\\(optimise_thresholds=False, plot=False, verbose=False\\)\nplot_battery_trading\\(r2['results_df'], output_path='plots/test_arbitrage.html',\n    bess_size=BESS_SIZE, buy_threshold=r2['buy_threshold'],\n    sell_threshold=r2['sell_threshold'], show_plot=False\\)\nprint\\('Arbitrage-only plot: OK'\\)\n\" 2>&1)"
     ]
   }
 }
