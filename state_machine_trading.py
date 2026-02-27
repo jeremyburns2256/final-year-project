@@ -17,15 +17,17 @@ SELL_THRESHOLD = 70  # $/MWh
 OPTIMISE_THRESHOLDS = True
 REMOVE_OUTLIERS_OPTIMISATION = True
 REMOVE_OUTLIERS_SIMULATION = False
-TRAIN_CSV = "data/price_JAN26.csv"
-TEST_CSV  = "data/price_FEB26.csv"
-TRAIN_SOLAR_CSV = "data/solar_JAN26.csv"
-TRAIN_LOAD_CSV  = "data/load_JAN26.csv"
-TEST_SOLAR_CSV  = "data/solar_FEB26.csv"
-TEST_LOAD_CSV   = "data/load_FEB26.csv"
+TRAIN_CSV = "data/price_DEC24.csv"
+TEST_CSV = "data/price_JAN25.csv"
+TRAIN_SOLAR_CSV = "data/solar_DEC24.csv"
+TRAIN_LOAD_CSV = "data/load_DEC24.csv"
+TEST_SOLAR_CSV = "data/solar_JAN25.csv"
+TEST_LOAD_CSV = "data/load_JAN25.csv"
 
 
-def _merge_optional_csv(price_df: pd.DataFrame, csv_path: str, col: str) -> pd.DataFrame:
+def _merge_optional_csv(
+    price_df: pd.DataFrame, csv_path: str, col: str
+) -> pd.DataFrame:
     """
     Load an optional single-column CSV and left-join it onto price_df by timestamp.
 
@@ -107,9 +109,9 @@ def run_trading_simulation(
         )
     """
     train_solar_col = "SOLAR_KW" if train_solar_csv else None
-    train_load_col  = "LOAD_KW"  if train_load_csv  else None
-    test_solar_col  = "SOLAR_KW" if test_solar_csv  else None
-    test_load_col   = "LOAD_KW"  if test_load_csv   else None
+    train_load_col = "LOAD_KW" if train_load_csv else None
+    test_solar_col = "SOLAR_KW" if test_solar_csv else None
+    test_load_col = "LOAD_KW" if test_load_csv else None
 
     # ── Load and merge training data ──────────────────────────────────────────
     train_df = pd.read_csv(train_csv)
@@ -125,7 +127,7 @@ def run_trading_simulation(
     if test_load_csv:
         test_df = _merge_optional_csv(test_df, test_load_csv, "LOAD_KW")
 
-    final_buy_threshold  = buy_threshold
+    final_buy_threshold = buy_threshold
     final_sell_threshold = sell_threshold
 
     # ── Optimise thresholds on training data ──────────────────────────────────
@@ -151,7 +153,9 @@ def run_trading_simulation(
         )
 
         if verbose:
-            print(f"Optimized thresholds: Buy=${final_buy_threshold:.2f}, Sell=${final_sell_threshold:.2f}\n")
+            print(
+                f"Optimized thresholds: Buy=${final_buy_threshold:.2f}, Sell=${final_sell_threshold:.2f}\n"
+            )
 
     # ── Evaluate on test data ─────────────────────────────────────────────────
     if verbose:
@@ -166,18 +170,20 @@ def run_trading_simulation(
             upper_quantile=upper_quantile,
         )
 
-    strategy   = make_strategy(final_buy_threshold, final_sell_threshold)
-    results_df = simulate(test_data, strategy, solar_col=test_solar_col, load_col=test_load_col)
+    strategy = make_strategy(final_buy_threshold, final_sell_threshold)
+    results_df = simulate(
+        test_data, strategy, solar_col=test_solar_col, load_col=test_load_col
+    )
 
     # ── Metrics ───────────────────────────────────────────────────────────────
     metrics = {
         "final_battery_state": results_df["battery_state"].iloc[-1],
-        "total_cost":          results_df["cumulative_cost"].iloc[-1],
-        "total_revenue":       results_df["cumulative_revenue"].iloc[-1],
-        "net_profit":          results_df["cumulative_profit"].iloc[-1],
-        "buy_count":           (results_df["action"] == "buy").sum(),
-        "sell_count":          (results_df["action"] == "sell").sum(),
-        "hold_count":          (results_df["action"] == "hold").sum(),
+        "total_cost": results_df["cumulative_cost"].iloc[-1],
+        "total_revenue": results_df["cumulative_revenue"].iloc[-1],
+        "net_profit": results_df["cumulative_profit"].iloc[-1],
+        "buy_count": (results_df["action"] == "buy").sum(),
+        "sell_count": (results_df["action"] == "sell").sum(),
+        "hold_count": (results_df["action"] == "hold").sum(),
     }
 
     # ── Verbose summary ───────────────────────────────────────────────────────
@@ -216,10 +222,10 @@ def run_trading_simulation(
         )
 
     return {
-        "results_df":      results_df,
-        "buy_threshold":   final_buy_threshold,
-        "sell_threshold":  final_sell_threshold,
-        "metrics":         metrics,
+        "results_df": results_df,
+        "buy_threshold": final_buy_threshold,
+        "sell_threshold": final_sell_threshold,
+        "metrics": metrics,
     }
 
 
