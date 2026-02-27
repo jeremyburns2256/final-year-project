@@ -18,18 +18,20 @@ def optimise_thresholds_brute(
     load_col: str | None = None,
     n_steps: int = 60,
     verbose: bool = True,
+    network_tariff: float = 0.0,
 ) -> tuple[float, float, float]:
     """
     Grid-search buy/sell thresholds to maximise net profit.
 
     Parameters
     ----------
-    price_df  : DataFrame with a 'RRP' column ($/MWh) and optionally
-                solar_col and/or load_col columns.
-    solar_col : Column name for solar generation (kW). None = no solar.
-    load_col  : Column name for household load (kW).  None = no load.
-    n_steps   : Number of candidate values along each axis of the grid.
-    verbose   : Print progress and results to stdout.
+    price_df       : DataFrame with a 'RRP' column ($/MWh) and optionally
+                     solar_col and/or load_col columns.
+    solar_col      : Column name for solar generation (kW). None = no solar.
+    load_col       : Column name for household load (kW).  None = no load.
+    n_steps        : Number of candidate values along each axis of the grid.
+    verbose        : Print progress and results to stdout.
+    network_tariff : Fixed network charge in cents/kWh on grid imports. Default = 0.0.
 
     Returns
     -------
@@ -63,6 +65,7 @@ def optimise_thresholds_brute(
                 make_strategy(buy_t, sell_t),
                 solar_arr=solar_arr,
                 load_arr=load_arr,
+                network_tariff=network_tariff,
             )
             if profit > best_profit:
                 best_profit         = profit

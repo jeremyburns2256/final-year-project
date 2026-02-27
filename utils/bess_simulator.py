@@ -48,6 +48,7 @@ def simulate(
     strategy_fn,
     solar_col: str | None = None,
     load_col: str | None = None,
+    network_tariff: float = 0.0,
 ) -> pd.DataFrame:
     """
     General simulation with optional solar generation and household load.
@@ -57,11 +58,12 @@ def simulate(
 
     Parameters
     ----------
-    price_df   : DataFrame with columns SETTLEMENTDATE, RRP, TOTALDEMAND.
-                 May also contain solar_col and/or load_col columns.
-    strategy_fn: callable(rrp, battery_state, solar_kw, load_kw) -> str
-    solar_col  : Column name for solar generation in kW. None = no solar.
-    load_col   : Column name for household load in kW.  None = no load.
+    price_df       : DataFrame with columns SETTLEMENTDATE, RRP, TOTALDEMAND.
+                     May also contain solar_col and/or load_col columns.
+    strategy_fn    : callable(rrp, battery_state, solar_kw, load_kw) -> str
+    solar_col      : Column name for solar generation in kW. None = no solar.
+    load_col       : Column name for household load in kW.  None = no load.
+    network_tariff : Fixed network charge in cents/kWh on grid imports. Default = 0.0.
 
     Returns
     -------
@@ -109,7 +111,8 @@ def simulate(
         grid_import = max(0.0, grid_net)
         grid_export = max(0.0, -grid_net)
 
-        cumulative_cost    += grid_import * rrp / 1000
+        # Cost = wholesale price + network tariff (both converted to $/kWh)
+        cumulative_cost    += grid_import * (rrp / 1000 + network_tariff / 100)
         cumulative_revenue += grid_export * rrp / 1000
 
         results.append({
@@ -136,16 +139,18 @@ def simulate_profit(
     strategy_fn,
     solar_arr: np.ndarray | None = None,
     load_arr: np.ndarray | None = None,
+    network_tariff: float = 0.0,
 ) -> float:
     """
     Fast profit-only simulation for optimisation loops.
 
     Parameters
     ----------
-    rrp_arr    : 1-D numpy array of RRP values ($/MWh), one per interval.
-    strategy_fn: callable(rrp, battery_state, solar_kw, load_kw) -> str
-    solar_arr  : 1-D numpy array of solar generation (kW). None = zeros.
-    load_arr   : 1-D numpy array of household load (kW).  None = zeros.
+    rrp_arr        : 1-D numpy array of RRP values ($/MWh), one per interval.
+    strategy_fn    : callable(rrp, battery_state, solar_kw, load_kw) -> str
+    solar_arr      : 1-D numpy array of solar generation (kW). None = zeros.
+    load_arr       : 1-D numpy array of household load (kW).  None = zeros.
+    network_tariff : Fixed network charge in cents/kWh on grid imports. Default = 0.0.
 
     Returns
     -------
@@ -187,7 +192,8 @@ def simulate_profit(
 
         grid_net = -net_local + bess_delta
         if grid_net > 0:
-            cost    += grid_net * rrp / 1000
+            # Cost = wholesale price + network tariff (both converted to $/kWh)
+            cost    += grid_net * (rrp / 1000 + network_tariff / 100)
         else:
             revenue += (-grid_net) * rrp / 1000
 

@@ -14,6 +14,7 @@ from utils.data import remove_outliers
 
 BUY_THRESHOLD = 20  # $/MWh
 SELL_THRESHOLD = 70  # $/MWh
+NETWORK_TARIFF = 10.8007  # cents/kWh on grid imports. AusGrid EA010 Tarrif Code
 OPTIMISE_THRESHOLDS = True
 REMOVE_OUTLIERS_OPTIMISATION = True
 REMOVE_OUTLIERS_SIMULATION = False
@@ -62,6 +63,7 @@ def run_trading_simulation(
     train_load_csv=TRAIN_LOAD_CSV,
     test_solar_csv=TEST_SOLAR_CSV,
     test_load_csv=TEST_LOAD_CSV,
+    network_tariff=NETWORK_TARIFF,
     verbose=True,
     plot=True,
     plot_title="State Machine Trading",
@@ -88,6 +90,7 @@ def run_trading_simulation(
         train_load_csv:  Load CSV to merge with training data. None = no load.
         test_solar_csv:  Solar CSV to merge with test data. None = no solar.
         test_load_csv:   Load CSV to merge with test data. None = no load.
+        network_tariff: Fixed network charge in cents/kWh on grid imports. Default = 0.0.
         verbose: Print verbose output
         plot: Whether to generate plot
         plot_title: Title for the plot
@@ -150,6 +153,7 @@ def run_trading_simulation(
             load_col=train_load_col,
             n_steps=n_steps,
             verbose=verbose,
+            network_tariff=network_tariff,
         )
 
         if verbose:
@@ -172,7 +176,11 @@ def run_trading_simulation(
 
     strategy = make_strategy(final_buy_threshold, final_sell_threshold)
     results_df = simulate(
-        test_data, strategy, solar_col=test_solar_col, load_col=test_load_col
+        test_data,
+        strategy,
+        solar_col=test_solar_col,
+        load_col=test_load_col,
+        network_tariff=network_tariff,
     )
 
     # ── Metrics ───────────────────────────────────────────────────────────────
