@@ -20,7 +20,7 @@ def load_meter_data(csv_path, stream=None):
 
     Returns:
         pandas.DataFrame: DataFrame with 'timestamp' column and columns for each data stream.
-                         Common streams: 'B1' (consumption/import), 'E1' (solar export), 'E6' (controlled load)
+                         Common streams: 'B1' (export = solar - load), 'E1' (grid import), 'E6' (controlled load)
     """
     data_streams = {}
     current_stream = None
@@ -81,32 +81,64 @@ def load_meter_data(csv_path, stream=None):
 
     return df
 
-def export_meter_solar_csv(meter_csv_path, output_csv_path):
+def export_meter_export_csv(meter_csv_path, output_csv_path):
     """
-    Export solar generation data from meter data to state machine format.
+    Export grid export data from meter data.
 
-    Converts B1 stream (solar generation in kWh per 5min) to kW for state machine.
+    Converts B1 stream (export = solar - load, in kWh per 5min) to kW.
+
+    NOTE: B1 represents NET EXPORT (solar - load), not solar generation.
+    To get actual solar generation, you need separate solar metering.
 
     Args:
         meter_csv_path: Path to NEM12 meter data CSV
-        output_csv_path: Path to write solar CSV (SETTLEMENTDATE, SOLAR_KW format)
+        output_csv_path: Path to write export CSV (SETTLEMENTDATE, EXPORT_KW format)
     """
     df = load_meter_data(meter_csv_path)
 
     # Convert kWh per 5min to kW: kWh / (5/60 hours) = kWh * 12
-    solar_df = pd.DataFrame({
+    export_df = pd.DataFrame({
         'SETTLEMENTDATE': df['timestamp'].dt.strftime('%-d/%m/%Y %-H:%M'),
-        'SOLAR_KW': df['B1'] * 12  # Convert to kW
+        'EXPORT_KW': df['B1'] * 12  # Convert to kW
     })
 
-    solar_df.to_csv(output_csv_path, index=False)
-    print(f"Exported {len(solar_df)} solar records to {output_csv_path}")
+    export_df.to_csv(output_csv_path, index=False)
+    print(f"Exported {len(export_df)} export records to {output_csv_path}")
+
+def export_meter_import_csv(meter_csv_path, output_csv_path):
+    """
+    Export grid import data from meter data.
+
+    Converts E1 stream (grid import in kWh per 5min) to kW.
+
+    Args:
+        meter_csv_path: Path to NEM12 meter data CSV
+        output_csv_path: Path to write import CSV (SETTLEMENTDATE, IMPORT_KW format)
+    """
+    df = load_meter_data(meter_csv_path)
+
+    # Convert kWh per 5min to kW: kWh / (5/60 hours) = kWh * 12
+    import_df = pd.DataFrame({
+        'SETTLEMENTDATE': df['timestamp'].dt.strftime('%-d/%m/%Y %-H:%M'),
+        'IMPORT_KW': df['E1'] * 12  # Convert to kW
+    })
+
+    import_df.to_csv(output_csv_path, index=False)
+    print(f"Exported {len(import_df)} import records to {output_csv_path}")
 
 def export_meter_load_csv(meter_csv_path, output_csv_path):
     """
     Export household load data from meter data to state machine format.
 
-    Calculates total household load as: Grid Import (E1) + Controlled Load (E6) + Solar used locally (B1)
+    WARNING: This function cannot accurately calculate total household load from meter
+    data alone because B1 = export = (solar - load), not solar generation.
+
+    To calculate total load, you need: load = solar - B1 (export)
+    But solar is not available in the meter data - it requires separate solar metering.
+
+    This function calculates GRID-SOURCED load only: E1 (import) + E6 (controlled load).
+    This excludes any load served directly by solar.
+
     Converts from kWh per 5min to kW for state machine.
 
     Args:
@@ -115,9 +147,10 @@ def export_meter_load_csv(meter_csv_path, output_csv_path):
     """
     df = load_meter_data(meter_csv_path)
 
-    # Total household load = solar generation + grid import + controlled load
-    # (All solar is assumed to be used locally first, grid import supplements)
-    load_kwh_per_5min = df['B1'] + df['E1'] + df['E6']
+    # Grid-sourced load only = grid import + controlled load
+    # NOTE: This does NOT include load served directly by solar
+    # Total load = (solar - B1) + E1 + E6, but we don't have solar from meter data
+    load_kwh_per_5min = df['E1'] + df['E6']
 
     # Convert kWh per 5min to kW: kWh / (5/60 hours) = kWh * 12
     load_df = pd.DataFrame({
@@ -126,4 +159,4 @@ def export_meter_load_csv(meter_csv_path, output_csv_path):
     })
 
     load_df.to_csv(output_csv_path, index=False)
-    print(f"Exported {len(load_df)} load records to {output_csv_path}")
+    print(f"Exported {len(load_df)} grid-sourced load records to {output_csv_path}")

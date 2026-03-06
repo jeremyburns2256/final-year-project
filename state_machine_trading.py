@@ -1,6 +1,6 @@
 """
 Basic BESS trading using a state machine.
-Supports optional solar generation and/or household load via separate CSV files.
+Supports optional export and import data via separate CSV files.
 No efficiency losses.
 """
 
@@ -20,10 +20,10 @@ REMOVE_OUTLIERS_OPTIMISATION = True
 REMOVE_OUTLIERS_SIMULATION = False
 TRAIN_CSV = "data/price_DEC24.csv"
 TEST_CSV = "data/price_JAN25.csv"
-TRAIN_SOLAR_CSV = "data/solar_DEC24.csv"
-TRAIN_LOAD_CSV = "data/load_DEC24.csv"
-TEST_SOLAR_CSV = "data/solar_JAN25.csv"
-TEST_LOAD_CSV = "data/load_JAN25.csv"
+TRAIN_EXPORT_CSV = "data/export_DEC24.csv"
+TRAIN_IMPORT_CSV = "data/import_DEC24.csv"
+TEST_EXPORT_CSV = "data/export_JAN25.csv"
+TEST_IMPORT_CSV = "data/import_JAN25.csv"
 
 
 def _merge_optional_csv(
@@ -59,10 +59,10 @@ def run_trading_simulation(
     lower_quantile=0.15,
     upper_quantile=0.85,
     n_steps=60,
-    train_solar_csv=TRAIN_SOLAR_CSV,
-    train_load_csv=TRAIN_LOAD_CSV,
-    test_solar_csv=TEST_SOLAR_CSV,
-    test_load_csv=TEST_LOAD_CSV,
+    train_export_csv=TRAIN_EXPORT_CSV,
+    train_import_csv=TRAIN_IMPORT_CSV,
+    test_export_csv=TEST_EXPORT_CSV,
+    test_import_csv=TEST_IMPORT_CSV,
     network_tariff=NETWORK_TARIFF,
     verbose=True,
     plot=True,
@@ -72,8 +72,10 @@ def run_trading_simulation(
     """
     Run the state machine trading simulation with configurable parameters.
 
-    Solar and load CSVs are specified separately for training and test so that
+    Export and import CSVs are specified separately for training and test so that
     the optimiser trains on the correct period's generation/consumption profile.
+
+    NOTE: Export data (B1) represents net export = solar - load, not solar generation.
 
     Args:
         train_csv: Path to training price CSV (for threshold optimisation)
@@ -86,10 +88,10 @@ def run_trading_simulation(
         lower_quantile: Lower quantile for outlier removal
         upper_quantile: Upper quantile for outlier removal
         n_steps: Number of steps for brute-force optimisation
-        train_solar_csv: Solar CSV to merge with training data. None = no solar.
-        train_load_csv:  Load CSV to merge with training data. None = no load.
-        test_solar_csv:  Solar CSV to merge with test data. None = no solar.
-        test_load_csv:   Load CSV to merge with test data. None = no load.
+        train_export_csv: Export CSV to merge with training data. None = no export data.
+        train_import_csv:  import CSV to merge with training data. None = no import.
+        test_export_csv:  Export CSV to merge with test data. None = no export data.
+        test_import_csv:   import CSV to merge with test data. None = no import.
         network_tariff: Fixed network charge in cents/kWh on grid imports. Default = 0.0.
         verbose: Print verbose output
         plot: Whether to generate plot
@@ -101,34 +103,33 @@ def run_trading_simulation(
             results_df    — per-interval simulation DataFrame
             buy_threshold — final buy threshold used
             sell_threshold — final sell threshold used
-            metrics       — dict with profit, costs, revenue, action counts
 
     Example — full prosumer run:
         run_trading_simulation(
-            train_solar_csv="data/solar_JAN26.csv",
-            train_load_csv="data/load_JAN26.csv",
-            test_solar_csv="data/solar_FEB26.csv",
-            test_load_csv="data/load_FEB26.csv",
+            train_export_csv="data/export_JAN26.csv",
+            train_import_csv="data/import_JAN26.csv",
+            test_export_csv="data/export_FEB26.csv",
+            test_import_csv="data/import_FEB26.csv",
         )
     """
-    train_solar_col = "SOLAR_KW" if train_solar_csv else None
-    train_load_col = "LOAD_KW" if train_load_csv else None
-    test_solar_col = "SOLAR_KW" if test_solar_csv else None
-    test_load_col = "LOAD_KW" if test_load_csv else None
+    train_export_col = "EXPORT_KW" if train_export_csv else None
+    train_import_col = "IMPORT_KW" if train_import_csv else None
+    test_export_col = "EXPORT_KW" if test_export_csv else None
+    test_import_col = "IMPORT_KW" if test_import_csv else None
 
-    # ── Load and merge training data ──────────────────────────────────────────
+    # ── import and merge training data ──────────────────────────────────────────
     train_df = pd.read_csv(train_csv)
-    if train_solar_csv:
-        train_df = _merge_optional_csv(train_df, train_solar_csv, "SOLAR_KW")
-    if train_load_csv:
-        train_df = _merge_optional_csv(train_df, train_load_csv, "LOAD_KW")
+    if train_export_csv:
+        train_df = _merge_optional_csv(train_df, train_export_csv, "EXPORT_KW")
+    if train_import_csv:
+        train_df = _merge_optional_csv(train_df, train_import_csv, "IMPORT_KW")
 
     # ── Load and merge test data ───────────────────────────────────────────────
     test_df = pd.read_csv(test_csv)
-    if test_solar_csv:
-        test_df = _merge_optional_csv(test_df, test_solar_csv, "SOLAR_KW")
-    if test_load_csv:
-        test_df = _merge_optional_csv(test_df, test_load_csv, "LOAD_KW")
+    if test_export_csv:
+        test_df = _merge_optional_csv(test_df, test_export_csv, "EXPORT_KW")
+    if test_import_csv:
+        test_df = _merge_optional_csv(test_df, test_import_csv, "IMPORT_KW")
 
     final_buy_threshold = buy_threshold
     final_sell_threshold = sell_threshold
@@ -149,8 +150,8 @@ def run_trading_simulation(
 
         final_buy_threshold, final_sell_threshold, _ = optimise_thresholds_brute(
             train_data,
-            solar_col=train_solar_col,
-            load_col=train_load_col,
+            export_col=train_export_col,
+            import_col=train_import_col,
             n_steps=n_steps,
             verbose=verbose,
             network_tariff=network_tariff,
@@ -178,8 +179,8 @@ def run_trading_simulation(
     results_df = simulate(
         test_data,
         strategy,
-        solar_col=test_solar_col,
-        load_col=test_load_col,
+        export_col=test_export_col,
+        import_col=test_import_col,
         network_tariff=network_tariff,
     )
 
@@ -189,18 +190,15 @@ def run_trading_simulation(
         "total_cost": results_df["cumulative_cost"].iloc[-1],
         "total_revenue": results_df["cumulative_revenue"].iloc[-1],
         "net_profit": results_df["cumulative_profit"].iloc[-1],
-        "buy_count": (results_df["action"] == "buy").sum(),
-        "sell_count": (results_df["action"] == "sell").sum(),
-        "hold_count": (results_df["action"] == "hold").sum(),
     }
 
     # ── Verbose summary ───────────────────────────────────────────────────────
     if verbose:
         mode_parts = []
-        if test_solar_csv:
-            mode_parts.append("solar")
-        if test_load_csv:
-            mode_parts.append("load")
+        if test_export_csv:
+            mode_parts.append("export")
+        if test_import_csv:
+            mode_parts.append("import")
         mode_str = f" [{', '.join(mode_parts)}]" if mode_parts else " [arbitrage only]"
 
         print(f"\n{'-'*40}")
@@ -210,10 +208,6 @@ def run_trading_simulation(
         print(f"Total Grid Cost:     ${metrics['total_cost']:.2f}")
         print(f"Total Grid Revenue:  ${metrics['total_revenue']:.2f}")
         print(f"Net Profit:          ${metrics['net_profit']:.2f}")
-        print()
-        print(f"Buy Actions:  {metrics['buy_count']}")
-        print(f"Sell Actions: {metrics['sell_count']}")
-        print(f"Hold Actions: {metrics['hold_count']}")
 
     # ── Plot ──────────────────────────────────────────────────────────────────
     if plot:

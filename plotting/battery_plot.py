@@ -2,12 +2,15 @@
 battery_plot.py
 Reusable Bokeh plotting module for BESS trading visualisations.
 
-Two vertically stacked panels with a shared, linked x-axis:
+Multiple vertically stacked panels with a shared, linked x-axis:
 
   Top panel
     Left primary   — SoC (kWh)
     Left secondary — Solar / Load power (kW)   [only when data present]
     Right          — RRP ($/MWh)
+
+  Middle panel
+    Center         — Local Net (Load - Solar) and Grid Action (Import/Export)
 
   Bottom panel
     Left           — Cumulative $ (profit, revenue, cost)
@@ -53,13 +56,14 @@ def plot_battery_trading(
     show_plot: bool = True,
 ) -> None:
     """
-    Plot two linked panels: trading overview and cumulative profit.
+    Plot multiple linked panels: trading overview, energy flows, and cumulative profit.
 
     Required columns in results_df:
         time, battery_state, rrp,
-        cumulative_profit, cumulative_revenue, cumulative_cost
+        cumulative_profit, cumulative_revenue, cumulative_cost,
+        grid_import_kwh, grid_export_kwh
     Optional columns (plotted when present and non-zero):
-        solar_kw, load_kw
+        export_kw (net export = solar - load), import_kw (load)
 
     Parameters
     ----------
@@ -76,14 +80,21 @@ def plot_battery_trading(
     df["profit_pos"] = df["cumulative_profit"].clip(lower=0)
     df["profit_neg"] = df["cumulative_profit"].clip(upper=0)
 
+    # Compute net grid action (positive = import, negative = export)
+    INTERVAL_HOURS = 5 / 60
+    df["grid_net_kw"] = (df["grid_import_kwh"] - df["grid_export_kwh"]) / INTERVAL_HOURS
+
+    # Compute local energy balance (positive = deficit, negative = surplus)
+    df["local_net_kw"] = df["import_kw"] - df["export_kw"]
+
     src = ColumnDataSource(df)
 
     output_file(output_path, title=title)
 
-    # ── Detect optional solar / load columns ──────────────────────────────────
-    has_solar = "solar_kw" in df.columns and df["solar_kw"].max() > 0
-    has_load  = "load_kw"  in df.columns and df["load_kw"].max()  > 0
-    has_power = has_solar or has_load
+    # ── Detect optional export / load columns ──────────────────────────────────
+    has_export = "export_kw" in df.columns and df["export_kw"].max() > 0
+    has_load   = "load_kw"   in df.columns and df["load_kw"].max()  > 0
+    has_power  = has_export or has_load
 
     # ── Shared x-axis range: default view = first day ─────────────────────────
     x_start   = df["time"].iloc[0]
@@ -106,8 +117,8 @@ def plot_battery_trading(
 
     if has_power:
         power_max   = max(
-            df["solar_kw"].max() if has_solar else 0,
-            df["load_kw"].max()  if has_load  else 0,
+            df["export_kw"].max() if has_export else 0,
+            df["load_kw"].max()   if has_load   else 0,
         )
         power_range = Range1d(start=0, end=power_max * 1.15)
 
@@ -141,12 +152,12 @@ def plot_battery_trading(
     price_axis.ticker.desired_num_ticks = 20
     p.add_layout(price_axis, "right")
 
-    if has_solar:
-        p.varea(x="time", y1=0, y2="solar_kw", source=src,
+    if has_export:
+        p.varea(x="time", y1=0, y2="export_kw", source=src,
                 fill_alpha=0.30, fill_color="#FFB300", y_range_name="power")
-        p.line(x="time", y="solar_kw", source=src,
+        p.line(x="time", y="export_kw", source=src,
                line_width=1.5, color="#FF8F00",
-               y_range_name="power", legend_label="Solar (kW)")
+               y_range_name="power", legend_label="Excess Solar (kW)")
 
     if has_load:
         p.line(x="time", y="load_kw", source=src,
@@ -176,6 +187,65 @@ def plot_battery_trading(
 
     p.legend.location = "top_left"
     p.legend.click_policy = "hide"
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # MIDDLE PANEL — Local Energy Balance & Grid Action
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    # Calculate range for energy flow panel
+    flow_max = max(
+        df["local_net_kw"].abs().max() if "local_net_kw" in df.columns else 0,
+        df["grid_net_kw"].abs().max() if "grid_net_kw" in df.columns else 0,
+    )
+    flow_padding = flow_max * 0.15
+    flow_range = Range1d(start=-flow_max - flow_padding, end=flow_max + flow_padding)
+
+    p_flow = figure(
+        height=300,
+        sizing_mode="stretch_width",
+        x_axis_type="datetime",
+        x_range=x_range,  # shared → linked pan/zoom
+        y_range=flow_range,
+        title="Energy Balance & Grid Action (kW)",
+        tools=_TOOLS,
+        toolbar_location="right",
+    )
+    p_flow.xaxis.formatter = DatetimeTickFormatter(hours="%H:%M", days="%d/%m")
+    p_flow.xaxis.ticker.desired_num_ticks = 24
+    p_flow.xaxis.axis_label = "Time"
+    p_flow.yaxis.axis_label = "Power (kW)"
+
+    # Zero reference line
+    p_flow.add_layout(Span(location=0, dimension="width",
+                           line_color="black", line_dash="dotted", line_width=1))
+
+    # Local net (load - solar): positive = deficit, negative = surplus
+    if "local_net_kw" in df.columns:
+        p_flow.line(x="time", y="local_net_kw", source=src,
+                    line_width=1.5, color="#9C27B0", alpha=0.6, line_dash="dashed",
+                    legend_label="Local Net (Load - Solar)")
+
+    # Grid action: positive = importing, negative = exporting
+    if "grid_net_kw" in df.columns:
+        # Color-code by direction: red for import, green for export
+        df["grid_import_pos"] = df["grid_net_kw"].clip(lower=0)
+        df["grid_export_neg"] = df["grid_net_kw"].clip(upper=0)
+
+        src_updated = ColumnDataSource(df)
+
+        # Filled areas for visual clarity
+        p_flow.varea(x="time", y1=0, y2="grid_import_pos", source=src_updated,
+                     fill_color="#E65100", fill_alpha=0.2)
+        p_flow.varea(x="time", y1="grid_export_neg", y2=0, source=src_updated,
+                     fill_color="#2E7D32", fill_alpha=0.2)
+
+        # Main line
+        p_flow.line(x="time", y="grid_net_kw", source=src_updated,
+                    line_width=2.5, color="#1565C0",
+                    legend_label="Grid Action (+ Import / - Export)")
+
+    p_flow.legend.location = "top_left"
+    p_flow.legend.click_policy = "hide"
 
     # ═══════════════════════════════════════════════════════════════════════════
     # BOTTOM PANEL — Cumulative profit / revenue / cost
@@ -231,11 +301,7 @@ def plot_battery_trading(
     p2.legend.click_policy = "hide"
 
     # ── Save / show ───────────────────────────────────────────────────────────
-    p3    = _build_summary_panel(df, has_solar, has_load)
-    p4    = _build_price_metrics_panel(df)
-    p5    = _build_load_breakdown_panel(df) if has_load else None
-    bottom = row(p4, p5, sizing_mode="stretch_width") if p5 else p4
-    layout = column(p, p2, p3, bottom, sizing_mode="stretch_width")
+    layout = column(p, p_flow, p2, sizing_mode="stretch_width")
 
     if show_plot:
         show(layout)
@@ -246,12 +312,12 @@ def plot_battery_trading(
 
 # ── Summary panel helper ──────────────────────────────────────────────────────
 
-def _build_summary_panel(df: pd.DataFrame, has_solar: bool, has_load: bool):
+def _build_summary_panel(df: pd.DataFrame, has_export: bool, has_load: bool):
     """
     Build a bar chart summarising total energy flows for the simulation period.
 
     Always shown  : Grid Export, Grid Import, Net Import/Export
-    Shown if present: Household Load, Solar Production
+    Shown if present: Household Load, Export (net generation = solar - load)
     """
     INTERVAL_HOURS = 5 / 60
 
@@ -267,12 +333,12 @@ def _build_summary_panel(df: pd.DataFrame, has_solar: bool, has_load: bool):
         values.append(df["load_kw"].sum() * INTERVAL_HOURS)
         colors.append("#E53935")
 
-    if has_solar:
-        categories.append("Solar\nProduction")
-        values.append(df["solar_kw"].sum() * INTERVAL_HOURS)
+    if has_export:
+        categories.append("Local\nExport")
+        values.append(df["export_kw"].sum() * INTERVAL_HOURS)
         colors.append("#FFB300")
 
-    categories += ["Grid\nExport", "Grid\nImport", "Net\nImport" if net >= 0 else "Net\nExport"]
+    categories += ["Grid\nExport", "Grid\nImport", "Net Grid\nImport" if net >= 0 else "Net Grid\nExport"]
     values     += [total_export,   total_import,   net]
     colors     += ["#1565C0",      "#E65100",      "#BF360C" if net > 0 else "#2E7D32"]
 
@@ -321,10 +387,10 @@ def _build_summary_panel(df: pd.DataFrame, has_solar: bool, has_load: bool):
 
 def _build_price_metrics_panel(df: pd.DataFrame):
     """
-    Bar chart: Avg Import Price, Avg Export Price, Net Cost per Net Import.
-    All values in $/MWh.
+    Bar chart: Avg Import Price, Avg Export Price, Effective Cost per kWh.
+    All values in cents per kWh (c/kWh).
 
-    The net-cost bar is capped at ±5× the larger of the two price bars so that
+    The effective-cost bar is capped at ±5× the larger of the two price bars so that
     an extreme value (common when net import is near zero) does not compress the
     other bars into invisibility.  When the bar is capped the label shows the
     true value with a '▲' / '▼' indicator so the user knows it is clipped.
@@ -335,11 +401,12 @@ def _build_price_metrics_panel(df: pd.DataFrame):
     total_revenue = df["cumulative_revenue"].iloc[-1]
     net_import    = total_import - total_export
 
-    avg_import = (total_cost    / total_import  * 1000) if total_import  > 1e-6 else 0.0
-    avg_export = (total_revenue / total_export  * 1000) if total_export  > 1e-6 else 0.0
+    # Convert from $/kWh to c/kWh: multiply by 100
+    avg_import = (total_cost    / total_import  * 100) if total_import  > 1e-6 else 0.0
+    avg_export = (total_revenue / total_export  * 100) if total_export  > 1e-6 else 0.0
 
     if abs(net_import) > 1e-6:
-        net_cost_true = (total_cost - total_revenue) / net_import * 1000
+        net_cost_true = (total_cost - total_revenue) / net_import * 100
     else:
         net_cost_true = 0.0
 
@@ -355,7 +422,7 @@ def _build_price_metrics_panel(df: pd.DataFrame):
     else:
         net_lbl      = f"{net_cost_true:.1f}"
 
-    categories = ["Avg Import\nPrice", "Avg Export\nPrice", "Net Cost\nper Import"]
+    categories = ["Avg Import\nPrice", "Avg Export\nPrice", "Effective Cost\nper kWh"]
     values     = [avg_import,           avg_export,           net_cost_disp]
     raw_labels = [f"{avg_import:.1f}",  f"{avg_export:.1f}",  net_lbl]
     colors     = ["#E65100", "#1565C0", "#2E7D32" if net_cost_true <= 0 else "#BF360C"]
@@ -376,7 +443,7 @@ def _build_price_metrics_panel(df: pd.DataFrame):
         sizing_mode="stretch_width",
         x_range=categories,
         y_range=Range1d(start=y_min, end=y_max),
-        title="Price Metrics ($/MWh)",
+        title="Price Metrics (c/kWh)",
         tools="",
         toolbar_location=None,
     )
@@ -388,7 +455,7 @@ def _build_price_metrics_panel(df: pd.DataFrame):
                            text_align="center", text_font_size="12px",
                            text_font_style="bold"))
 
-    p4.yaxis.axis_label             = "$/MWh"
+    p4.yaxis.axis_label             = "c/kWh"
     p4.xgrid.grid_line_color        = None
     p4.xaxis.major_label_text_font_size = "12px"
     p4.outline_line_color           = None
@@ -397,7 +464,11 @@ def _build_price_metrics_panel(df: pd.DataFrame):
 
 def _build_load_breakdown_panel(df: pd.DataFrame):
     """
-    Bar chart showing how household load was served: Solar / Battery / Grid.
+    Bar chart showing how household load was served: Export / Battery / Grid.
+
+    NOTE: With export data (B1 = solar - load), we can't accurately break down
+    how load was served without actual solar generation data. This function
+    provides a rough approximation.
 
     Battery contribution is inferred from the change in battery_state each
     interval (discharge = negative delta → covers load before the grid does).
@@ -405,17 +476,19 @@ def _build_load_breakdown_panel(df: pd.DataFrame):
     """
     IH = 5 / 60
 
-    solar_kwh   = df["solar_kw"] * IH
+    export_kwh  = df["export_kw"] * IH if "export_kw" in df.columns else 0
     load_kwh    = df["load_kw"]  * IH
     bess_delta  = df["battery_state"].diff().fillna(df["battery_state"].iloc[0])
 
-    solar_to_load   = solar_kwh.clip(upper=load_kwh)
-    remaining       = (load_kwh - solar_kwh).clip(lower=0)
+    # Approximate: when export > 0, some local generation is available
+    # This is a rough estimate since we don't have actual solar data
+    local_to_load   = (-export_kwh).clip(lower=0, upper=load_kwh)
+    remaining       = (load_kwh - local_to_load).clip(lower=0)
     batt_discharge  = (-bess_delta).clip(lower=0)
     battery_to_load = batt_discharge.clip(upper=remaining)
     grid_to_load    = (remaining - battery_to_load).clip(lower=0)
 
-    s = solar_to_load.sum()
+    s = local_to_load.sum() if isinstance(local_to_load, pd.Series) else 0
     b = battery_to_load.sum()
     g = grid_to_load.sum()
     total = s + b + g
@@ -423,7 +496,7 @@ def _build_load_breakdown_panel(df: pd.DataFrame):
     if total < 1e-6:
         return None
 
-    categories = ["Solar",  "Battery", "Grid"]
+    categories = ["Local Gen",  "Battery", "Grid"]
     values     = [s,         b,          g]
     colors     = ["#FFB300", "#4CAF50",  "#E65100"]
     pcts       = [v / total * 100 for v in values]
