@@ -47,20 +47,26 @@ def make_strategy(buy_threshold: float, sell_threshold: float):
                 bess_delta = -min(
                     battery_state, _ENERGY_PER_INTERVAL_BESS
                 )  # Discharge to sell at high price
-                grid_net = bess_delta + net_import  # Net grid position: discharge offsets import, surplus exported
+                grid_net = (
+                    bess_delta + net_import
+                )  # Net grid position: discharge offsets import, surplus exported
             elif export_kw > 0:
                 # Export all surplus at high price, then discharge battery to maximum capacity to sell at high price
                 bess_delta = -min(
                     battery_state, _ENERGY_PER_INTERVAL_BESS - net_export
                 )  # Battery discharge limited by remaining inverter capacity after solar export
-                grid_net = bess_delta - net_export  # Total export: solar surplus + battery discharge (both negative)
+                grid_net = (
+                    bess_delta - net_export
+                )  # Total export: solar surplus + battery discharge (both negative)
             else:
                 # No local generation, discharge battery to sell at high price
                 bess_delta = -min(
                     battery_state, _ENERGY_PER_INTERVAL_BESS
                 )  # Discharge to sell at high price
-                grid_net = bess_delta  # Export battery discharge to grid (negative = export)
-        elif rrp < buy_threshold:
+                grid_net = (
+                    bess_delta  # Export battery discharge to grid (negative = export)
+                )
+        elif rrp <= buy_threshold:
             if import_kw > 0:
                 # Load deficit, cheap price, charge battery from grid, supply load from grid
                 bess_delta = min(
@@ -77,11 +83,15 @@ def make_strategy(buy_threshold: float, sell_threshold: float):
                         _ENERGY_PER_INTERVAL_SOLAR,
                         BESS_SIZE - battery_state,
                     )  # Charge battery with excess solar up to limits
-                    grid_net = bess_delta - net_export  # Export remaining surplus after battery charge (negative = export)
+                    grid_net = (
+                        bess_delta - net_export
+                    )  # Export remaining surplus after battery charge (negative = export)
                 else:
                     # Battery full, export all excess at cheap price
                     bess_delta = 0.0  # No battery movement
-                    grid_net = -net_export  # Export all excess energy at cheap price (negative = export)
+                    grid_net = (
+                        -net_export
+                    )  # Export all excess energy at cheap price (negative = export)
             else:
                 # No local generation, charge battery from grid at cheap price
                 bess_delta = min(
