@@ -1,9 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python state_machine_trading.py)"
-    ],
-    "deny": [],
-    "ask": []
+      "Bash(.venv/Scripts/pip install:*)",
+      "Bash(cmd /c \"py -0p\" 2>&1)"
+    ]
   }
 }
