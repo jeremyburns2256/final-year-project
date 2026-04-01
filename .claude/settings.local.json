@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(.venv/Scripts/pip install:*)",
-      "Bash(cmd /c \"py -0p\" 2>&1)"
-    ]
-  }
-}
