@@ -9,8 +9,8 @@ BESS trading. Supports optional export and import columns for prosumer scenarios
 import numpy as np
 import pandas as pd
 
-from trading.utils.bess_simulator import simulate_profit
-from trading.state_machine.strategy_state_machine import make_strategy
+from utils.bess_simulator import simulate_profit
+from state_machine.strategy_state_machine import make_strategy
 
 
 def optimise_thresholds_brute(

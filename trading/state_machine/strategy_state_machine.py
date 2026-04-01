@@ -7,7 +7,7 @@ bess_simulator.simulate_profit().
 """
 
 from __future__ import annotations
-from trading.utils.bess_simulator import (
+from utils.bess_simulator import (
     BESS_SIZE,
     BESS_INVERTER_CAPACITY,
     _ENERGY_PER_INTERVAL_BESS,
