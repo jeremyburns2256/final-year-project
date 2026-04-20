@@ -63,13 +63,13 @@ def _mark_lag(p, lag, label):
             y=0,
             y_units="screen",
             text=label,
-            text_font_size="10px",
+            text_font_size="13px",
             text_color="black",
         )
     )
 
 
-def _make_acf_plot(values, ci, title, x_label, color):
+def _make_acf_plot(values, ci, title, x_label, color, font_size="14px"):
     """Helper to build a single ACF or PACF bar chart with confidence interval bands."""
     lags = list(range(len(values)))
     p = figure(
@@ -92,6 +92,11 @@ def _make_acf_plot(values, ci, title, x_label, color):
                 line_width=1.5,
             )
         )
+    p.title.text_font_size = font_size
+    p.xaxis.axis_label_text_font_size = font_size
+    p.yaxis.axis_label_text_font_size = font_size
+    p.xaxis.major_label_text_font_size = font_size
+    p.yaxis.major_label_text_font_size = font_size
     return p
 
 
@@ -162,6 +167,76 @@ def plot_acf_annual(df, col_name="RRP", output_html="acf_annual.html"):
     print(f"Annual ACF/PACF saved to {output_html}")
 
 
+def plot_demand_acf_combined(df, output_html="totaldemand_acf_combined.html"):
+    """
+    ACF of TOTALDEMAND at two time scales stacked as subplots:
+    - 48-hour window (30-min lags, lag 48 = 24 hrs)
+    - 365-day window (daily lags, lag 365 = 1 year)
+    """
+    series_30min = df["TOTALDEMAND"].dropna()
+    acf_48hr = acf(series_30min, nlags=96, fft=True)
+    ci_48hr = 1.96 / np.sqrt(len(series_30min))
+
+    daily = df["TOTALDEMAND"].resample("D").mean().dropna()
+    acf_365d = acf(daily, nlags=365, fft=True)
+    ci_365d = 1.96 / np.sqrt(len(daily))
+
+    output_file(output_html)
+    p_48hr = _make_acf_plot(
+        acf_48hr,
+        ci_48hr,
+        "ACF - TOTALDEMAND  |  48-hour window (30-min lags, lag 48 = 24 hrs)",
+        "Lag (30-min intervals)",
+        "navy",
+    )
+    _mark_lag(p_48hr, 48, "24 hrs")
+    _mark_lag(p_48hr, 96, "48 hrs")
+
+    p_365d = _make_acf_plot(
+        acf_365d,
+        ci_365d,
+        "ACF - TOTALDEMAND  |  365-day window (daily lags, lag 365 = 1 year)",
+        "Lag (days)",
+        "navy",
+    )
+    _mark_lag(p_365d, 365, "1 year")
+
+    show(column(p_48hr, p_365d))
+    print(f"Demand ACF combined saved to {output_html}")
+
+
+def plot_rrp_acf_pacf_48hr(df, output_html="rrp_acf_pacf_48hr.html"):
+    """
+    ACF and PACF of RRP over a 48-hour window (30-min lags, up to lag 96).
+    """
+    series = df["RRP"].dropna()
+    max_lag = 96
+    acf_vals = acf(series, nlags=max_lag, fft=True)
+    pacf_vals = pacf(series, nlags=max_lag, method="ywm")
+    ci = 1.96 / np.sqrt(len(series))
+
+    output_file(output_html)
+    p_acf = _make_acf_plot(
+        acf_vals,
+        ci,
+        "ACF - RRP  |  48-hour window (30-min lags, lag 48 = 24 hrs)",
+        "Lag (30-min intervals)",
+        "navy",
+    )
+    p_pacf = _make_acf_plot(
+        pacf_vals,
+        ci,
+        "PACF - RRP  |  48-hour window (30-min lags)",
+        "Lag (30-min intervals)",
+        "steelblue",
+    )
+    for p in (p_acf, p_pacf):
+        _mark_lag(p, 48, "24 hrs")
+        _mark_lag(p, 96, "48 hrs")
+    show(column(p_acf, p_pacf))
+    print(f"RRP ACF/PACF 48hr saved to {output_html}")
+
+
 if __name__ == "__main__":
     df = load_data("data_exploration/data/merged_nem_data_outlier_removed.csv")
 
@@ -184,3 +259,15 @@ if __name__ == "__main__":
             col_name=col,
             output_html=f"data_exploration/plots/{col.lower()}_acf_annual.html",
         )
+
+    print("\n=== ACF in NEM Demand (combined 48hr + 365d) ===")
+    plot_demand_acf_combined(
+        df,
+        output_html="data_exploration/plots/totaldemand_acf_combined.html",
+    )
+
+    print("\n=== NEM Prices ACF and PACF (48hr) ===")
+    plot_rrp_acf_pacf_48hr(
+        df,
+        output_html="data_exploration/plots/rrp_acf_pacf_48hr.html",
+    )
