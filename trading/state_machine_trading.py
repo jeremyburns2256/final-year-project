@@ -10,7 +10,7 @@ from plotting.battery_plot import plot_battery_trading
 from utils.bess_simulator import BESS_SIZE, simulate
 from state_machine.optimise_thresholds import optimise_thresholds_brute
 from state_machine.strategy_state_machine import make_strategy
-from utils.data import remove_outliers
+from utils.data import merge_optional_csv, remove_outliers
 
 BUY_THRESHOLD = 20  # $/MWh
 SELL_THRESHOLD = 70  # $/MWh
@@ -24,28 +24,6 @@ TRAIN_EXPORT_CSV = "data/export_DEC24.csv"
 TRAIN_IMPORT_CSV = "data/import_DEC24.csv"
 TEST_EXPORT_CSV = "data/export_JAN25.csv"
 TEST_IMPORT_CSV = "data/import_JAN25.csv"
-
-
-def _merge_optional_csv(
-    price_df: pd.DataFrame, csv_path: str, col: str
-) -> pd.DataFrame:
-    """
-    Load an optional single-column CSV and left-join it onto price_df by timestamp.
-
-    The join is done on parsed datetimes, so timestamp string formatting differences
-    between files (e.g. zero-padded vs not) are handled automatically. The original
-    SETTLEMENTDATE strings in price_df are preserved.
-    """
-    extra = pd.read_csv(csv_path)[["SETTLEMENTDATE", col]]
-
-    price_indexed = price_df.copy()
-    price_indexed["_dt"] = pd.to_datetime(price_df["SETTLEMENTDATE"], dayfirst=True)
-
-    extra_indexed = extra[[col]].copy()
-    extra_indexed["_dt"] = pd.to_datetime(extra["SETTLEMENTDATE"], dayfirst=True)
-
-    merged = price_indexed.merge(extra_indexed, on="_dt", how="left").fillna({col: 0.0})
-    return merged.drop(columns="_dt")
 
 
 def run_trading_simulation(
@@ -120,16 +98,16 @@ def run_trading_simulation(
     # ── import and merge training data ──────────────────────────────────────────
     train_df = pd.read_csv(train_csv)
     if train_export_csv:
-        train_df = _merge_optional_csv(train_df, train_export_csv, "EXPORT_KW")
+        train_df = merge_optional_csv(train_df, train_export_csv, "EXPORT_KW")
     if train_import_csv:
-        train_df = _merge_optional_csv(train_df, train_import_csv, "IMPORT_KW")
+        train_df = merge_optional_csv(train_df, train_import_csv, "IMPORT_KW")
 
     # ── Load and merge test data ───────────────────────────────────────────────
     test_df = pd.read_csv(test_csv)
     if test_export_csv:
-        test_df = _merge_optional_csv(test_df, test_export_csv, "EXPORT_KW")
+        test_df = merge_optional_csv(test_df, test_export_csv, "EXPORT_KW")
     if test_import_csv:
-        test_df = _merge_optional_csv(test_df, test_import_csv, "IMPORT_KW")
+        test_df = merge_optional_csv(test_df, test_import_csv, "IMPORT_KW")
 
     final_buy_threshold = buy_threshold
     final_sell_threshold = sell_threshold
