@@ -1,4 +1,8 @@
 pandas
+numpy
 bokeh
+pulp
+highspy
+rainflow
 tensorflow
 scikit-learn

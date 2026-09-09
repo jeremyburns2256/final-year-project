@@ -5,3 +5,8 @@
 __pycache__/
 
 .claude/*
+
+# virtual environments and generated outputs
+.venv/
+venv/
+trading/plots/

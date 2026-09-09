@@ -5,6 +5,28 @@ Module used for loading and normalising data
 import pandas as pd
 from datetime import datetime, timedelta
 
+def merge_optional_csv(
+    price_df: pd.DataFrame, csv_path: str, col: str
+) -> pd.DataFrame:
+    """
+    Load an optional single-column CSV and left-join it onto price_df by timestamp.
+
+    The join is done on parsed datetimes, so timestamp string formatting differences
+    between files (e.g. zero-padded vs not) are handled automatically. The original
+    SETTLEMENTDATE strings in price_df are preserved.
+    """
+    extra = pd.read_csv(csv_path)[["SETTLEMENTDATE", col]]
+
+    price_indexed = price_df.copy()
+    price_indexed["_dt"] = pd.to_datetime(price_df["SETTLEMENTDATE"], dayfirst=True)
+
+    extra_indexed = extra[[col]].copy()
+    extra_indexed["_dt"] = pd.to_datetime(extra["SETTLEMENTDATE"], dayfirst=True)
+
+    merged = price_indexed.merge(extra_indexed, on="_dt", how="left").fillna({col: 0.0})
+    return merged.drop(columns="_dt")
+
+
 def remove_outliers(price_df, column="RRP", lower_quantile=0.15, upper_quantile=0.85):
     lower_bound = price_df[column].quantile(lower_quantile)
     upper_bound = price_df[column].quantile(upper_quantile)
