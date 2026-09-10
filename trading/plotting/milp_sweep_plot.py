@@ -30,7 +30,7 @@ def plot_j_sweep(summary: pd.DataFrame, *, title: str, output_path: str) -> None
         src = ColumnDataSource(grp)
         col = colours.get(scenario, "#555")
         p1.line("n_segments", "net_profit_ex_degradation", source=src, color=col, line_dash="dashed", line_width=2, legend_label=f"{scenario} excl. degradation")
-        p1.line("n_segments", "net_profit_incl_degradation", source=src, color=col, line_width=2, legend_label=f"{scenario} incl. degradation")
+        p1.line("n_segments", "net_profit_incl_degradation", source=src, color=col, line_width=2, legend_label=f"{scenario} incl. rainflow degradation")
         p1.scatter("n_segments", "net_profit_incl_degradation", source=src, color=col, size=7)
         p2.line("n_segments", "degradation_cost_model", source=src, color=col, line_width=2, legend_label=f"{scenario} model")
         p2.line("n_segments", "degradation_cost_rainflow", source=src, color=col, line_dash="dotted", line_width=2, legend_label=f"{scenario} rainflow")
