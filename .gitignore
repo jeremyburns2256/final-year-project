@@ -1,4 +1,6 @@
 *.html
+# generated plots are tracked
+!trading/plots/*.html
 
 # Python cache files
 *.pyc
@@ -6,7 +8,9 @@ __pycache__/
 
 .claude/*
 
-# virtual environments and generated outputs
+# virtual environments
 .venv/
 venv/
-trading/plots/
+
+# LibreOffice lock files
+.~lock.*#

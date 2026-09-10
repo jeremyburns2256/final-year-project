@@ -29,6 +29,7 @@ def simulate_milp(
     solver_name: str = "HiGHS",
     solver_time_limit: float | None = 120.0,
     verbose: bool = True,
+    r_cell_valuation: float | None = None,
 ) -> tuple[pd.DataFrame, dict]:
     """
     Run the rolling MILP over a full price DataFrame.
@@ -36,6 +37,11 @@ def simulate_milp(
     Returns (results_df, metrics). results_df has the same columns as the state
     machine simulator (so plotting/battery_plot.py works unchanged) plus
     charge_kw, discharge_kw, degradation_cost, cumulative_degradation.
+
+    r_cell_valuation: replacement cost used to price the ex-post rainflow life loss
+    in the metrics (defaults to params.r_cell). Pass the real R_cell so that runs
+    optimised with a different (e.g. zero) aging cost are still charged for the
+    life they actually consumed.
     """
     rrp = price_df["RRP"].to_numpy(dtype=float)
     times = price_df["SETTLEMENTDATE"].to_numpy()
@@ -104,16 +110,29 @@ def simulate_milp(
     )
     results["cumulative_profit"] = results["cumulative_revenue"] - results["cumulative_cost"]
 
-    metrics = summarise(results, params)
+    metrics = summarise(results, params, r_cell_valuation=r_cell_valuation)
     metrics.update({"n_windows": n_windows, "solve_seconds": total_solve})
     return results, metrics
 
 
-def summarise(results: pd.DataFrame, params: BatteryParams) -> dict:
-    """Metrics on a results DataFrame, including the ex-post rainflow check."""
+def summarise(results: pd.DataFrame, params: BatteryParams, r_cell_valuation: float | None = None) -> dict:
+    """
+    Metrics on a results DataFrame, including the ex-post rainflow check.
+
+    Two degradation figures are reported:
+      degradation_cost_model    the piecewise-linear cost the optimiser charged itself
+                                (zero when params.r_cell == 0). Used only for the
+                                Xu Eq. (26) validation against rainflow at the same R.
+      degradation_cost_rainflow the real cost: rainflow life loss x r_cell_valuation.
+    net_profit_incl_degradation always subtracts the real (rainflow) cost so that
+    runs with different optimiser aging costs are comparable.
+    """
+    r_val = params.r_cell if r_cell_valuation is None else r_cell_valuation
     soc_path = np.concatenate([[params.e_initial], results["battery_state"].to_numpy()])
-    rf = rainflow_aging_cost(soc_path, params.e_max, params.r_cell, params.phi_a, params.phi_k)
+    rf = rainflow_aging_cost(soc_path, params.e_max, r_val, params.phi_a, params.phi_k)
     model_deg = float(results["degradation_cost"].sum()) if "degradation_cost" in results else float("nan")
+    # Validate the piecewise-linear approximation at the R the optimiser actually used.
+    rainflow_at_model_r = params.r_cell * rf["life_loss_fraction"]
     grid_cost = float(results["cumulative_cost"].iloc[-1])
     grid_rev = float(results["cumulative_revenue"].iloc[-1])
     discharged = float(results["discharge_kw"].sum() * INTERVAL_HOURS) if "discharge_kw" in results else float("nan")
@@ -122,9 +141,9 @@ def summarise(results: pd.DataFrame, params: BatteryParams) -> dict:
         "grid_revenue": grid_rev,
         "net_profit_ex_degradation": grid_rev - grid_cost,
         "degradation_cost_model": model_deg,
-        "net_profit_incl_degradation": grid_rev - grid_cost - model_deg,
         "degradation_cost_rainflow": rf["rainflow_cost"],
-        "rainflow_relative_error": relative_error(model_deg, rf["rainflow_cost"]),
+        "net_profit_incl_degradation": grid_rev - grid_cost - rf["rainflow_cost"],
+        "rainflow_relative_error": relative_error(model_deg, rainflow_at_model_r),
         "life_loss_fraction": rf["life_loss_fraction"],
         "rainflow_cycles": rf["n_cycles"],
         "mean_cycle_depth": rf["mean_cycle_depth"],

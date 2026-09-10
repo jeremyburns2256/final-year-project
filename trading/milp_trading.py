@@ -73,6 +73,7 @@ def run_milp_simulation(
         step_hours=step_hours,
         solver_name=solver_name,
         verbose=verbose,
+        r_cell_valuation=R_CELL,
     )
     if verbose:
         print_metrics(label, metrics)
@@ -93,9 +94,9 @@ def print_metrics(label: str, m: dict) -> None:
     print(f"Grid cost:                    ${m['grid_cost']:9.2f}")
     print(f"Grid revenue:                 ${m['grid_revenue']:9.2f}")
     print(f"Net profit excl. degradation: ${m['net_profit_ex_degradation']:9.2f}")
-    print(f"Degradation cost (model):     ${m['degradation_cost_model']:9.2f}")
+    print(f"Degradation cost (model):     ${m['degradation_cost_model']:9.2f}   (optimiser's internal PWL cost)")
     print(f"Degradation cost (rainflow):  ${m['degradation_cost_rainflow']:9.2f}   rel. error {m['rainflow_relative_error']:.3f}")
-    print(f"Net profit incl. degradation: ${m['net_profit_incl_degradation']:9.2f}")
+    print(f"Net profit incl. degradation: ${m['net_profit_incl_degradation']:9.2f}   (uses rainflow cost at R_cell={R_CELL:.0f})")
     print(f"Life loss: {100 * m['life_loss_fraction']:.3f}%   rainflow cycles: {m['rainflow_cycles']:.1f}   "
           f"mean depth {m['mean_cycle_depth']:.2f}   EFC {m['equivalent_full_cycles']:.1f}")
     print(f"Final SoC: {m['final_soc_kwh']:.2f} kWh   solve time {m.get('solve_seconds', float('nan')):.1f}s")
@@ -119,9 +120,8 @@ def state_machine_baseline(n_days=None, verbose=True):
     results_df = results_df.copy()
     results_df["degradation_cost"] = 0.0
     results_df["discharge_kw"] = (-results_df["battery_state"].diff().fillna(results_df["battery_state"].iloc[0])).clip(lower=0) / (5 / 60)
-    m = summarise(results_df, sm_params)
+    m = summarise(results_df, sm_params, r_cell_valuation=R_CELL)
     m["degradation_cost_model"] = float("nan")
-    m["net_profit_incl_degradation"] = m["net_profit_ex_degradation"] - m["degradation_cost_rainflow"]
     m["rainflow_relative_error"] = float("nan")
     if verbose:
         print_metrics(f"state_machine (buy 68.22 / sell 127.20, {bess_simulator.BESS_SIZE} kWh)", m)
