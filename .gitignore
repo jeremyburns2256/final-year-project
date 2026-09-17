@@ -19,3 +19,13 @@ venv/
 trading/data/nemosis_cache/
 
 # trained forecasters are tracked (small)
+
+# per-interval simulation output and run logs (1-2 MB each; regenerate with the drivers)
+trading/results/milp_*_R*.csv
+trading/results/mpc_*.csv
+trading/results/*.log
+
+# per-run plot pages are drawn on demand (--per-run); only the headline run is tracked
+trading/plots/milp_*_R*.html
+trading/plots/mpc_*.html
+!trading/plots/milp_household_J4_R12000.html
