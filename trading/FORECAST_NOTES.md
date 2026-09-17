@@ -13,6 +13,7 @@ relative MAE vs seasonal naive) is reported as a secondary table.
 | Forecaster | Price | Net-local |
 |---|---|---|
 | Perfect | actual | actual |
+| PerfectPrice | actual | 7-day time-of-day profile |
 | SeasonalNaive | same 30-min slot previous day | 7-day time-of-day profile |
 | AemoPredispatch | latest PREDISPATCHPRICE run before t, naive fill beyond horizon | 7-day profile |
 | LstmPrice | LSTM (below) | 7-day profile |
@@ -41,6 +42,10 @@ relative MAE vs seasonal naive) is reported as a secondary table.
 - Terminal constraint Eq. 2.6k stays at the end of each 24 h horizon.
 - Perfect foresight is **re-run with the same 24 h / 5-min loop** so the gap
   isolates forecast error rather than horizon choice.
+- PerfectPrice (added 2026-09-17) keeps the actual price but forecasts net-local
+  with the same 7-day profile as the real forecasters. It is the fair reference
+  for the price forecasters: perfect − PerfectPrice is the cost of the household
+  forecast, PerfectPrice − forecaster is the cost of the price forecast alone.
 - Solver time limit reduced per window (8928 windows; a 120 s stall is fatal);
   accept the incumbent rather than raise when the limit hits.
 - Configuration: household scenario, R_cell = 12 000, J = 4 only. The J-sweep
@@ -119,6 +124,7 @@ Existing perfect-foresight `simulate_milp` is untouched. requirements: add
 | Forecaster | Net profit incl. rainflow deg. | Gap to perfect | Price MAE | Median AE | Forecast spikes > 1000 |
 |---|---|---|---|---|---|
 | Perfect | 28.74 | 0 | 0 | 0 | actual: 0.1% |
+| Perfect price, forecast load | 19.64 | 9.10 | 0 | 0 | – |
 | Naive | 15.92 | 12.82 | 61.3 | 25.3 | 0.4% |
 | AEMO pre-dispatch | 14.67 | 14.07 | 161.6 | 16.4 | 1.0% |
 | LSTM | 15.94 | 12.80 | 44.6 | 22.0 | 0.0% |
@@ -126,6 +132,10 @@ Existing perfect-foresight `simulate_milp` is untouched. requirements: add
 - Perfect foresight on the 24 h / 5-min MPC loop reproduces the 48 h / 24 h
   rolling result (28.74) exactly: the day-ahead commit cost nothing under
   perfect information, so the whole gap below is forecast error.
+- Perfect price with the 7-day load profile (added 2026-09-17) earns 19.64: the
+  household forecast alone costs 9.10 of the 12.8-14.1 gap, so the price
+  forecasts cost only 3.70 (LSTM) to 4.97 (AEMO) against the fair reference.
+  Most of the "forecast error" gap is the net-local forecast, not the price.
 - All three real forecasters capture ~55% of the perfect-foresight profit.
   The LSTM cuts price MAE by 27% relative to the naive (rMAE 0.73 on JAN25,
   0.68 on the 2024 validation year) but delivers the same dispatch value,
@@ -139,3 +149,21 @@ Existing perfect-foresight `simulate_milp` is untouched. requirements: add
   a stochastic/scenario MILP, or a blended AEMO-plus-LSTM forecast.
 - Outputs: results/forecast_summary.csv, results/mpc_household_J4_<name>.csv/.json,
   plots/forecast_study.html, plots/mpc_household_J4_<name>.html, models/price_lstm.pt.
+
+## Plots (2026-09-17)
+
+- `plots/forecast_study.html` is one page: KPI row; net profit per forecaster
+  beside the accuracy-vs-value scatter; MAE / median AE / clipped MAE and error by
+  lead time; cumulative profit and cumulative shortfall against perfect foresight
+  with the 15 Jan spike marked; the 15 Jan case study (forecasts issued 04:04 and
+  12:05 on an asinh price axis, actual price, SoC per controller); table view.
+- Per-run pages (plotting/battery_plot.py: KPI row, an overview strip whose
+  window drives the price / SoC / power panels, cumulative $ over the whole run,
+  rainflow cycle-depth histogram) are drawn only with `--per-run`, and are not
+  tracked; the one tracked per-run page is the headline perfect-foresight
+  configuration, `plots/milp_household_J4_R12000.html`.
+- Colours are fixed per forecaster in plotting/theme.py (perfect = ink, naive =
+  aqua, AEMO = blue, LSTM = orange) so a hue means the same thing on every panel.
+- `python forecast_trading.py --plot-only [--per-run]` redraws from results/
+  without solving; `python milp_trading.py --plot-only [--per-run]` does the same
+  for the degradation study (`plots/milp_j_sweep.html`).

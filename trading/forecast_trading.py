@@ -7,7 +7,8 @@ reports the dispatch value of each relative to perfect foresight.
 Run from the trading/ directory:
     python forecast_trading.py                       # all forecasters, full JAN25
     python forecast_trading.py --quick               # perfect + naive, 2 days
-    python forecast_trading.py --forecasters perfect naive aemo lstm --days 7
+    python forecast_trading.py --forecasters perfect perfect_price naive aemo lstm --days 7
+    python forecast_trading.py --reuse             # only forecasters without a results/*.json are solved
 
 Companion to milp_trading.py (perfect-foresight rolling horizon).
 """
@@ -34,13 +35,16 @@ RESULTS_DIR = "results"
 PLOTS_DIR = "plots"
 N_SEGMENTS = 4
 HORIZON_HOURS = 24.0
-ALL_FORECASTERS = ("perfect", "naive", "aemo", "lstm")
+ALL_FORECASTERS = ("perfect", "perfect_price", "naive", "aemo", "lstm")
 
 
 def make_forecaster(name: str, frame, household: bool = True):
     if name == "perfect":
         from forecasting.naive import PerfectForecaster
         return PerfectForecaster(frame)
+    if name == "perfect_price":
+        from forecasting.naive import PerfectPriceForecaster
+        return PerfectPriceForecaster(frame)
     if name == "naive":
         from forecasting.naive import SeasonalNaiveForecaster
         return SeasonalNaiveForecaster(frame)
@@ -135,14 +139,17 @@ def load_saved_row(name: str, household: bool, n_days) -> dict | None:
 
 
 def run_study(forecasters=ALL_FORECASTERS, household=True, n_days=None, solver_name="HiGHS",
-              plot=True, verbose=True, parallel=True, reuse=False) -> pd.DataFrame:
-    """reuse=True picks up results/<label>.json from earlier runs instead of re-solving those forecasters."""
+              plot=True, verbose=True, parallel=True, reuse=False, per_run_plots=False) -> pd.DataFrame:
+    """
+    reuse=True picks up results/<label>.json from earlier runs instead of re-solving those forecasters.
+    plot draws the study page; per_run_plots also draws a page per forecaster.
+    """
     t0 = time.time()
     saved = {f: load_saved_row(f, household, n_days) for f in forecasters} if reuse else {}
     todo = [f for f in forecasters if saved.get(f) is None]
     if reuse and verbose:
         print(f"reusing saved results for {[f for f in forecasters if saved.get(f)]}, running {todo}")
-    args = [(f, household, n_days, solver_name, plot, verbose) for f in todo]
+    args = [(f, household, n_days, solver_name, plot and per_run_plots, verbose) for f in todo]
     if not args:
         rows = []
     elif parallel and len(args) > 1:
@@ -171,14 +178,29 @@ def run_study(forecasters=ALL_FORECASTERS, household=True, n_days=None, solver_n
     print(summary[cols].round(3).to_string(index=False))
     print(f"\nWritten {path}   wall time {time.time() - t0:.0f}s")
     if plot:
-        frame = load_frame(household=household, n_test_days=n_days)
-        fcs = {f: make_forecaster(f, frame, household) for f in forecasters}
-        res = {f: pd.read_csv(f"{RESULTS_DIR}/mpc_{'household' if household else 'bess_only'}_J{N_SEGMENTS}_{f}.csv") for f in forecasters}
-        day = str(frame.start_times[frame.test_start].normalize().date()) if n_days else "2025-01-15"
-        os.makedirs(PLOTS_DIR, exist_ok=True)
-        plot_forecast_study(summary, res, frame, fcs, title=f"Forecast study JAN25{suffix}",
-                            output_path=f"{PLOTS_DIR}/forecast_study{suffix}.html", day=day)
+        plot_study(summary, forecasters, household=household, n_days=n_days)   # per-run pages were drawn in run_one
     return summary
+
+
+def plot_study(summary: pd.DataFrame, forecasters=ALL_FORECASTERS, household: bool = True, n_days=None,
+               per_run: bool = False) -> None:
+    """Study page from a summary frame and the saved per-interval CSVs. per_run=True also redraws each forecaster's own plot."""
+    frame = load_frame(household=household, n_test_days=n_days)
+    scenario = "household" if household else "bess_only"
+    names = [f for f in forecasters if f in set(summary["forecaster"])]
+    fcs = {f: make_forecaster(f, frame, household) for f in names}
+    res = {f: pd.read_csv(f"{RESULTS_DIR}/mpc_{scenario}_J{N_SEGMENTS}_{f}.csv") for f in names}
+    day = str(frame.start_times[frame.test_start].normalize().date()) if n_days else "2025-01-15"
+    suffix = f"_{n_days}d" if n_days else ""
+    os.makedirs(PLOTS_DIR, exist_ok=True)
+    if per_run:
+        e_max = BatteryParams(r_cell=R_CELL, n_segments=N_SEGMENTS).e_max
+        for f in names:
+            label = f"mpc_{scenario}_J{N_SEGMENTS}_{f}"
+            plot_battery_trading(res[f], title=f"MPC, {scenario}, J={N_SEGMENTS}, {f} forecaster",
+                                 output_path=f"{PLOTS_DIR}/{label}.html", bess_size=e_max, show_plot=False)
+    plot_forecast_study(summary, res, frame, fcs, title=f"Forecast study JAN25{suffix}",
+                        output_path=f"{PLOTS_DIR}/forecast_study{suffix}.html", day=day)
 
 
 def main():
@@ -192,11 +214,18 @@ def main():
     ap.add_argument("--serial", action="store_true", help="run forecasters one after another")
     ap.add_argument("--quiet", action="store_true")
     ap.add_argument("--reuse", action="store_true", help="reuse results/*.json from earlier runs where present")
+    ap.add_argument("--plot-only", action="store_true", help="redraw the plots from results/ without solving")
+    ap.add_argument("--per-run", action="store_true", help="also draw a page for every forecaster's run (default: study page only)")
     a = ap.parse_args()
     forecasters = ["perfect", "naive"] if a.quick else a.forecasters
     n_days = 2 if a.quick else a.days
+    if a.plot_only:
+        suffix = f"_{n_days}d" if n_days else ""
+        summary = pd.read_csv(f"{RESULTS_DIR}/forecast_summary{suffix}.csv")
+        plot_study(summary, forecasters, household=not a.bess_only, n_days=n_days, per_run=a.per_run)
+        return
     run_study(forecasters, household=not a.bess_only, n_days=n_days, solver_name=a.solver,
-              plot=not a.no_plot, verbose=not a.quiet, parallel=not a.serial, reuse=a.reuse)
+              plot=not a.no_plot, verbose=not a.quiet, parallel=not a.serial, reuse=a.reuse, per_run_plots=a.per_run)
 
 
 if __name__ == "__main__":

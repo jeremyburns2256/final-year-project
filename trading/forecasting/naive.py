@@ -1,7 +1,7 @@
 """
 naive.py
 
-Perfect-foresight and seasonal-naive forecasters (FORECAST_NOTES: baselines).
+Perfect-foresight (both and price-only) and seasonal-naive forecasters (FORECAST_NOTES: baselines).
 """
 
 from __future__ import annotations
@@ -21,6 +21,23 @@ class PerfectForecaster(Forecaster):
 
     def net_local(self, t, horizon):
         return self.frame.net_local[t : t + horizon].copy()
+
+
+class PerfectPriceForecaster(Forecaster):
+    """
+    Actual prices with the same 7-day net-local profile the real forecasters use.
+    Isolates the price forecast: the gap between this and PerfectForecaster is the
+    cost of the household forecast; the gap from this to the real forecasters is
+    the cost of the price forecast alone.
+    """
+
+    name = "perfect_price"
+
+    def price(self, t, horizon):
+        return self.frame.rrp[t : t + horizon].copy()
+
+    def net_local(self, t, horizon):
+        return self.seven_day_profile(t, horizon)
 
 
 class SeasonalNaiveForecaster(HalfHourlyPriceMixin, Forecaster):
