@@ -1,38 +1,33 @@
 """
 battery_plot.py
-Reusable Bokeh plotting module for BESS trading visualisations.
 
-Multiple vertically stacked panels with a shared, linked x-axis:
+One page per simulation run (state machine, perfect-foresight MILP, or MPC):
+a KPI row, then four linked panels that share the x axis, each with one y axis:
 
-  Top panel
-    Left primary   — SoC (kWh)
-    Left secondary — Solar / Load power (kW)   [only when data present]
-    Right          — RRP ($/MWh)
+  1. Dispatch price ($/MWh) on an asinh scale, with buy/sell thresholds when given
+  2. Battery state of charge (kWh) against the usable capacity
+  3. Power (kW): battery charge/discharge, household net-local, grid import/export
+  4. Cumulative $: net grid profit, revenue, cost and (when present) the optimiser's
+     degradation charge
 
-  Middle panel
-    Center         — Local Net (Load - Solar) and Grid Action (Import/Export)
+followed by the rainflow cycle-depth histogram of the SoC trajectory. Everything
+shown in the panels is also in the hover readout.
 
-  Bottom panel
-    Left           — Cumulative $ (profit, revenue, cost)
-
-Price y-axis is clipped to a percentile range to suppress outlier spikes.
+Required columns: time, battery_state, rrp, cumulative_profit, cumulative_revenue,
+cumulative_cost, grid_import_kwh, grid_export_kwh. Optional: export_kw, import_kw,
+charge_kw, discharge_kw, cumulative_degradation, degradation_cost.
 """
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
-from bokeh.layouts import column, row
-from bokeh.models import (
-    ColumnDataSource,
-    DatetimeTickFormatter,
-    LabelSet,
-    LinearAxis,
-    Range1d,
-    Span,
-)
-from bokeh.plotting import figure, output_file, save, show
+from bokeh.layouts import row
+from bokeh.models import ColumnDataSource, Label, Range1d, RangeTool, Span
 
-_TOOLS = "pan,wheel_zoom,box_zoom,reset,save"
+from plotting import theme as T
+
+INTERVAL_HOURS = 5 / 60
 
 
 def _to_datetime(series: pd.Series) -> pd.Series:
@@ -44,488 +39,182 @@ def _to_datetime(series: pd.Series) -> pd.Series:
         return pd.to_datetime(series)
 
 
+def _prepare(results_df: pd.DataFrame) -> pd.DataFrame:
+    df = results_df.copy()
+    df["time"] = _to_datetime(df["time"])
+    df["grid_kw"] = (df["grid_import_kwh"] - df["grid_export_kwh"]) / INTERVAL_HOURS     # + import, - export
+    if "export_kw" in df and "import_kw" in df:
+        df["net_local_kw"] = df["export_kw"] - df["import_kw"]                          # + surplus, - deficit
+    else:
+        df["net_local_kw"] = 0.0
+    if "charge_kw" in df and "discharge_kw" in df:
+        df["battery_kw"] = df["charge_kw"] - df["discharge_kw"]                          # + charging
+    else:
+        delta = df["battery_state"].diff().fillna(0.0)
+        df["battery_kw"] = delta / INTERVAL_HOURS
+    if "cumulative_degradation" not in df:
+        df["cumulative_degradation"] = np.nan
+    df["profit_after_model_deg"] = df["cumulative_profit"] - df["cumulative_degradation"].fillna(0.0)
+    df["rrp_y"] = T.price_to_axis(df["rrp"])
+    return df
+
+
+def _rainflow_panel(soc: np.ndarray, e_max: float):
+    from milp.degradation import rainflow_life_loss
+
+    loss, cycles = rainflow_life_loss(soc, e_max)
+    depths = np.array([c[0] for c in cycles]) if cycles else np.array([0.0])
+    counts = np.array([c[2] for c in cycles]) if cycles else np.array([0.0])
+    edges = np.linspace(0, 1, 11)
+    hist, _ = np.histogram(depths, bins=edges, weights=counts)
+    src = ColumnDataSource(dict(left=edges[:-1], right=edges[1:], top=hist, mid=(edges[:-1] + edges[1:]) / 2))
+    p = T.make_figure(height=260, title="Rainflow cycle count by depth of discharge", tools="save,hover")
+    p.quad(left="left", right="right", bottom=0, top="top", source=src, fill_color=T.BLUE, line_color=T.SURFACE, line_width=2)
+    p.hover.tooltips = [("depth", "@left{0.0}–@right{0.0}"), ("cycles", "@top{0.0}")]
+    p.xaxis.axis_label = "Cycle depth (fraction of usable capacity)"
+    p.yaxis.axis_label = "Cycles (half cycles count 0.5)"
+    p.x_range = Range1d(0, 1)
+    p.y_range.start = 0
+    T.style(p, legend=False)
+    stats = {"life_loss": loss, "cycles": float(counts.sum()),
+             "mean_depth": float((depths * counts).sum() / counts.sum()) if counts.sum() > 0 else 0.0,
+             "max_depth": float(depths.max()) if len(depths) else 0.0}
+    return p, stats
+
+
 def plot_battery_trading(
     results_df: pd.DataFrame,
     *,
-    title: str = "BESS Trading Results",
+    title: str = "BESS trading results",
     output_path: str = "battery_plot.html",
     bess_size: float | None = None,
-    price_percentile_clip: tuple[float, float] = (2, 98),
+    price_percentile_clip=None,          # kept for call compatibility; the price axis is asinh-scaled instead
     buy_threshold: float | None = None,
     sell_threshold: float | None = None,
     show_plot: bool = True,
+    subtitle: str = "",
+    window_days: float = 3.0,
 ) -> None:
-    """
-    Plot multiple linked panels: trading overview, energy flows, and cumulative profit.
-
-    Required columns in results_df:
-        time, battery_state, rrp,
-        cumulative_profit, cumulative_revenue, cumulative_cost,
-        grid_import_kwh, grid_export_kwh
-    Optional columns (plotted when present and non-zero):
-        export_kw (net export = solar - load), import_kw (load)
-
-    Parameters
-    ----------
-    bess_size             : Battery capacity in kWh — sets SoC y-axis ceiling.
-    price_percentile_clip : (low, high) percentiles used to clip the price
-                            y-axis range. Default (2, 98).
-    buy_threshold         : Price in $/MWh below which the strategy buys.
-    sell_threshold        : Price in $/MWh above which the strategy sells.
-    """
-    df = results_df.copy()
-    df["time"] = _to_datetime(df["time"])
-
-    # Pre-compute positive / negative profit bands for the fill
-    df["profit_pos"] = df["cumulative_profit"].clip(lower=0)
-    df["profit_neg"] = df["cumulative_profit"].clip(upper=0)
-
-    # Compute net grid action (positive = import, negative = export)
-    INTERVAL_HOURS = 5 / 60
-    df["grid_net_kw"] = (df["grid_import_kwh"] - df["grid_export_kwh"]) / INTERVAL_HOURS
-
-    # Compute local energy balance (positive = deficit, negative = surplus)
-    df["local_net_kw"] = df["import_kw"] - df["export_kw"]
-
+    """window_days: initial width of the detail window; the overview strip's handles move it over the full run."""
+    df = _prepare(results_df)
     src = ColumnDataSource(df)
+    t0, t1 = df["time"].iloc[0], df["time"].iloc[-1]
+    x_range = Range1d(start=t0, end=min(t1, t0 + pd.Timedelta(days=window_days)))
+    hover_time = [("time", "@time{%d %b %H:%M}")]
+    fmt = {"@time": "datetime"}
 
-    output_file(output_path, title=title)
+    # -- KPIs -----------------------------------------------------------------
+    profit = float(df["cumulative_profit"].iloc[-1])
+    revenue = float(df["cumulative_revenue"].iloc[-1])
+    cost = float(df["cumulative_cost"].iloc[-1])
+    discharged = float((-df["battery_kw"]).clip(lower=0).sum() * INTERVAL_HOURS)
+    e_max = bess_size or float(df["battery_state"].max())
+    rf_panel, rf = _rainflow_panel(np.concatenate([[df["battery_state"].iloc[0]], df["battery_state"].to_numpy()]), e_max)
+    tiles = [
+        {"label": "Net grid profit", "value": (f"−${abs(profit):,.2f}" if profit < 0 else f"${profit:,.2f}"), "sub": "revenue − cost, before degradation", "tone": "good" if profit >= 0 else "bad"},
+        {"label": "Grid revenue", "value": f"${revenue:,.2f}", "sub": f"{df['grid_export_kwh'].sum():,.0f} kWh exported"},
+        {"label": "Grid cost", "value": f"${cost:,.2f}", "sub": f"{df['grid_import_kwh'].sum():,.0f} kWh imported, incl. network tariff"},
+        {"label": "Equivalent full cycles", "value": f"{discharged / e_max:,.1f}", "sub": f"{discharged:,.0f} kWh discharged"},
+        {"label": "Cycle life consumed", "value": f"{100 * rf['life_loss']:.3f}%", "sub": f"{rf['cycles']:.0f} rainflow cycles, mean depth {rf['mean_depth']:.2f}"},
+    ]
+    if df["cumulative_degradation"].notna().any():
+        deg = float(df["cumulative_degradation"].iloc[-1])
+        tiles.insert(1, {"label": "Optimiser's degradation charge", "value": f"${deg:,.2f}", "sub": f"net after charge ${profit - deg:,.2f}"})
 
-    # ── Detect optional export / load columns ──────────────────────────────────
-    has_export = "export_kw" in df.columns and df["export_kw"].max() > 0
-    has_load   = "load_kw"   in df.columns and df["load_kw"].max()  > 0
-    has_power  = has_export or has_load
+    # -- 0. overview strip: whole run, drag the window to move the detail panels --
+    p0 = T.make_figure(height=120, title="Whole run: drag or resize the shaded window to choose what the detail panels show",
+                       x_axis_type="datetime", x_range=Range1d(start=t0, end=t1), tools="")
+    p0.line("time", "rrp_y", source=src, color=T.MUTED, line_width=1)
+    T.asinh_price_axis(p0, ticks=(0, 300, 17500), axis_label="")
+    p0.y_range = Range1d(float(T.price_to_axis(min(-50.0, float(df["rrp"].min()) - 10))), float(T.price_to_axis(20000)))
+    rt = RangeTool(x_range=x_range)
+    rt.overlay.fill_color = T.BLUE
+    rt.overlay.fill_alpha = 0.12
+    p0.add_tools(rt)
+    p0.toolbar_location = None
+    T.style(p0, legend=False)
 
-    # ── Shared x-axis range: default view = first day ─────────────────────────
-    x_start   = df["time"].iloc[0]
-    x_end     = x_start + pd.Timedelta(days=1)
-    x_range   = Range1d(start=x_start, end=x_end)
+    # -- 1. price -------------------------------------------------------------
+    p1 = T.make_figure(height=260, title="Dispatch price", x_axis_type="datetime", x_range=x_range)
+    T.asinh_price_axis(p1)
+    r1 = p1.line("time", "rrp_y", source=src, color=T.INK, line_width=1.5)
+    T.line_hover(p1, [r1], hover_time + [("price", "@rrp{0.0} $/MWh")], formatters=fmt)
+    lo = min(-50.0, float(df["rrp"].min()) - 10)
+    p1.y_range = Range1d(float(T.price_to_axis(lo)), float(T.price_to_axis(max(1000.0, float(df["rrp"].max()) * 1.3))))
+    for thr, name, base, off in ((buy_threshold, "buy below", "top", -3), (sell_threshold, "sell above", "bottom", 3)):
+        if thr is not None:
+            y = float(T.price_to_axis(thr))
+            p1.add_layout(Span(location=y, dimension="width", line_color=T.MUTED, line_dash="dashed", line_width=1))
+            p1.add_layout(Label(x=t0, y=y, text=f"{name} {thr:.0f} $/MWh", x_offset=4, y_offset=off, text_baseline=base,
+                                text_font=T.FONT, text_font_size="11px", text_color=T.MUTED))
+    T.style(p1, legend=False)
 
-    # ═══════════════════════════════════════════════════════════════════════════
-    # TOP PANEL — SoC / Solar / Load / RRP
-    # ═══════════════════════════════════════════════════════════════════════════
+    # -- 2. SoC ---------------------------------------------------------------
+    p2 = T.make_figure(height=240, title="Battery state of charge", x_axis_type="datetime", x_range=x_range)
+    p2.varea(x="time", y1=0, y2="battery_state", source=src, fill_color=T.BLUE, fill_alpha=0.10)
+    r2 = p2.line("time", "battery_state", source=src, color=T.BLUE, line_width=1.5)
+    T.line_hover(p2, [r2], hover_time + [("SoC", "@battery_state{0.00} kWh")], formatters=fmt)
+    if bess_size:
+        p2.add_layout(Span(location=bess_size, dimension="width", line_color=T.AXIS, line_width=1))
+        p2.add_layout(Label(x=t0, y=bess_size, text=f"usable capacity {bess_size:g} kWh", x_offset=4, y_offset=-3, text_align="left",
+                            text_baseline="top", text_font=T.FONT, text_font_size="11px", text_color=T.MUTED))
+        p2.y_range = Range1d(0, bess_size * 1.08)
+    else:
+        p2.y_range.start = 0
+    p2.yaxis.axis_label = "kWh"
+    T.style(p2, legend=False)
 
-    # ── Y-axis ranges ─────────────────────────────────────────────────────────
-    soc_max     = (bess_size * 1.05) if bess_size is not None else (df["battery_state"].max() * 1.1)
-    soc_range   = Range1d(start=0, end=soc_max)
+    # -- 3. power -------------------------------------------------------------
+    p3 = T.make_figure(height=280, title="Power flows", x_axis_type="datetime", x_range=x_range)
+    T.zero_line(p3)
+    has_local = bool(np.any(df["net_local_kw"] != 0))
+    rends = [p3.line("time", "battery_kw", source=src, color=T.BLUE, line_width=1.5, legend_label="Battery (+ charge / − discharge)")]
+    rends.append(p3.line("time", "grid_kw", source=src, color=T.ORANGE, line_width=1.5, legend_label="Grid (+ import / − export)"))
+    if has_local:
+        rends.append(p3.line("time", "net_local_kw", source=src, color=T.AQUA, line_width=1.5, legend_label="Household net (+ surplus / − deficit)"))
+    tips = hover_time + [("battery", "@battery_kw{0.00} kW"), ("grid", "@grid_kw{0.00} kW")] + ([("household net", "@net_local_kw{0.00} kW")] if has_local else [])
+    T.line_hover(p3, rends[:1], tips, formatters=fmt)
+    m = float(max(df["battery_kw"].abs().max(), df["grid_kw"].abs().max(), df["net_local_kw"].abs().max(), 1.0))
+    p3.y_range = Range1d(-1.15 * m, 1.45 * m)
+    p3.yaxis.axis_label = "kW"
+    p3.legend.location = "top_left"
+    p3.legend.orientation = "horizontal"
+    T.style(p3)
 
-    lo, hi      = price_percentile_clip
-    price_lo    = df["rrp"].quantile(lo / 100)
-    price_hi    = df["rrp"].quantile(hi / 100)
-    padding     = (price_hi - price_lo) * 0.05
-    price_range = Range1d(start=price_lo - padding, end=price_hi + padding)
+    # -- 4. cumulative $ ------------------------------------------------------
+    p4 = T.make_figure(height=280, title="Cumulative grid revenue, cost and profit over the whole run", x_axis_type="datetime",
+                       x_range=Range1d(start=t0, end=t1))
+    T.zero_line(p4)
+    rends = [p4.line("time", "cumulative_profit", source=src, color=T.INK, line_width=2.5, legend_label="Net profit")]
+    rends.append(p4.line("time", "cumulative_revenue", source=src, color=T.BLUE, line_width=1.5, legend_label="Revenue"))
+    rends.append(p4.line("time", "cumulative_cost", source=src, color=T.ORANGE, line_width=1.5, legend_label="Cost"))
+    tips = hover_time + [("net profit", "$@cumulative_profit{0.00}"), ("revenue", "$@cumulative_revenue{0.00}"), ("cost", "$@cumulative_cost{0.00}")]
+    if df["cumulative_degradation"].notna().any():
+        rends.append(p4.line("time", "cumulative_degradation", source=src, color=T.AQUA, line_width=1.5, legend_label="Optimiser's degradation charge"))
+        tips.append(("degradation charge", "$@cumulative_degradation{0.00}"))
+    T.line_hover(p4, rends[:1], tips, formatters=fmt)
+    ys = df[["cumulative_profit", "cumulative_revenue", "cumulative_cost"]].to_numpy()
+    lo, hi = min(0.0, float(ys.min())), float(ys.max())
+    span = max(hi - lo, 1.0)
+    p4.y_range = Range1d(lo - 0.05 * span, hi + 0.25 * span)
+    p4.yaxis.axis_label = "$"
+    p4.legend.location = "top_left"
+    p4.legend.orientation = "horizontal"
+    T.style(p4)
 
-    if has_power:
-        power_max   = max(
-            df["export_kw"].max() if has_export else 0,
-            df["load_kw"].max()   if has_load   else 0,
-        )
-        power_range = Range1d(start=0, end=power_max * 1.15)
-
-    # ── Figure ────────────────────────────────────────────────────────────────
-    extra_ranges = {"rrp": price_range}
-    if has_power:
-        extra_ranges["power"] = power_range
-
-    p = figure(
-        height=500,
-        sizing_mode="stretch_width",
-        x_axis_type="datetime",
-        x_range=x_range,
-        y_range=soc_range,
-        title=title,
-        tools=_TOOLS,
-        toolbar_location="right",
-    )
-    p.extra_y_ranges = extra_ranges
-    p.xaxis.formatter = DatetimeTickFormatter(hours="%H:%M", days="%d/%m")
-    p.xaxis.ticker.desired_num_ticks = 24
-    p.xaxis.axis_label = "Time"
-    p.yaxis.axis_label = "SoC (kWh)"
-
-    if has_power:
-        power_axis = LinearAxis(y_range_name="power", axis_label="Power (kW)")
-        power_axis.ticker.desired_num_ticks = 8
-        p.add_layout(power_axis, "left")
-
-    price_axis = LinearAxis(y_range_name="rrp", axis_label="Price ($/MWh)")
-    price_axis.ticker.desired_num_ticks = 20
-    p.add_layout(price_axis, "right")
-
-    if has_export:
-        p.varea(x="time", y1=0, y2="export_kw", source=src,
-                fill_alpha=0.30, fill_color="#FFB300", y_range_name="power")
-        p.line(x="time", y="export_kw", source=src,
-               line_width=1.5, color="#FF8F00",
-               y_range_name="power", legend_label="Excess Solar (kW)")
-
-    if has_load:
-        p.line(x="time", y="load_kw", source=src,
-               line_width=1.5, color="#E53935", line_dash="dashed",
-               y_range_name="power", legend_label="Load (kW)")
-
-    p.varea(x="time", y1=0, y2="battery_state", source=src,
-            fill_alpha=0.25, fill_color="#4CAF50")
-    p.line(x="time", y="battery_state", source=src,
-           line_width=1.5, color="#2E7D32", legend_label="SoC (kWh)")
-
-    p.line(x="time", y="rrp", source=src,
-           line_width=1, color="#1565C0", alpha=0.8,
-           y_range_name="rrp", legend_label="RRP ($/MWh)")
-
-    x_span = [df["time"].iloc[0], df["time"].iloc[-1]]
-    if buy_threshold is not None:
-        p.line(x=x_span, y=[buy_threshold, buy_threshold],
-               y_range_name="rrp", color="#2196F3",
-               line_dash="dashed", line_width=1.5,
-               legend_label=f"Buy < ${buy_threshold:.0f}")
-    if sell_threshold is not None:
-        p.line(x=x_span, y=[sell_threshold, sell_threshold],
-               y_range_name="rrp", color="#F44336",
-               line_dash="dashed", line_width=1.5,
-               legend_label=f"Sell >= ${sell_threshold:.0f}")
-
-    p.legend.location = "top_left"
-    p.legend.click_policy = "hide"
-
-    # ═══════════════════════════════════════════════════════════════════════════
-    # MIDDLE PANEL — Local Energy Balance & Grid Action
-    # ═══════════════════════════════════════════════════════════════════════════
-
-    # Calculate range for energy flow panel
-    flow_max = max(
-        df["local_net_kw"].abs().max() if "local_net_kw" in df.columns else 0,
-        df["grid_net_kw"].abs().max() if "grid_net_kw" in df.columns else 0,
-    )
-    flow_padding = flow_max * 0.15
-    flow_range = Range1d(start=-flow_max - flow_padding, end=flow_max + flow_padding)
-
-    p_flow = figure(
-        height=300,
-        sizing_mode="stretch_width",
-        x_axis_type="datetime",
-        x_range=x_range,  # shared → linked pan/zoom
-        y_range=flow_range,
-        title="Energy Balance & Grid Action (kW)",
-        tools=_TOOLS,
-        toolbar_location="right",
-    )
-    p_flow.xaxis.formatter = DatetimeTickFormatter(hours="%H:%M", days="%d/%m")
-    p_flow.xaxis.ticker.desired_num_ticks = 24
-    p_flow.xaxis.axis_label = "Time"
-    p_flow.yaxis.axis_label = "Power (kW)"
-
-    # Zero reference line
-    p_flow.add_layout(Span(location=0, dimension="width",
-                           line_color="black", line_dash="dotted", line_width=1))
-
-    # Local net (load - solar): positive = deficit, negative = surplus
-    if "local_net_kw" in df.columns:
-        p_flow.line(x="time", y="local_net_kw", source=src,
-                    line_width=1.5, color="#9C27B0", alpha=0.6, line_dash="dashed",
-                    legend_label="Local Net (Load - Solar)")
-
-    # Grid action: positive = importing, negative = exporting
-    if "grid_net_kw" in df.columns:
-        # Color-code by direction: red for import, green for export
-        df["grid_import_pos"] = df["grid_net_kw"].clip(lower=0)
-        df["grid_export_neg"] = df["grid_net_kw"].clip(upper=0)
-
-        src_updated = ColumnDataSource(df)
-
-        # Filled areas for visual clarity
-        p_flow.varea(x="time", y1=0, y2="grid_import_pos", source=src_updated,
-                     fill_color="#E65100", fill_alpha=0.2)
-        p_flow.varea(x="time", y1="grid_export_neg", y2=0, source=src_updated,
-                     fill_color="#2E7D32", fill_alpha=0.2)
-
-        # Main line
-        p_flow.line(x="time", y="grid_net_kw", source=src_updated,
-                    line_width=2.5, color="#1565C0",
-                    legend_label="Grid Action (+ Import / - Export)")
-
-    p_flow.legend.location = "top_left"
-    p_flow.legend.click_policy = "hide"
-
-    # ═══════════════════════════════════════════════════════════════════════════
-    # BOTTOM PANEL — Cumulative profit / revenue / cost
-    # ═══════════════════════════════════════════════════════════════════════════
-
-    profit_min  = df["cumulative_profit"].min()
-    profit_max  = df[["cumulative_profit", "cumulative_revenue"]].max().max()
-    profit_pad  = max(abs(profit_max - profit_min) * 0.08, 1.0)
-    profit_range = Range1d(
-        start=min(profit_min - profit_pad, -profit_pad),
-        end=profit_max + profit_pad,
-    )
-
-    p2 = figure(
-        height=250,
-        sizing_mode="stretch_width",
-        x_axis_type="datetime",
-        x_range=x_range,          # shared → linked pan/zoom
-        y_range=profit_range,
-        title="Cumulative Profit / Revenue / Cost",
-        tools=_TOOLS,
-        toolbar_location="right",
-    )
-    p2.xaxis.formatter = DatetimeTickFormatter(hours="%H:%M", days="%d/%m")
-    p2.xaxis.ticker.desired_num_ticks = 24
-    p2.xaxis.axis_label = "Time"
-    p2.yaxis.axis_label = "Cumulative ($)"
-
-    # Zero reference line
-    p2.add_layout(Span(location=0, dimension="width",
-                       line_color="black", line_dash="dotted", line_width=1))
-
-    # Filled profit bands (green above zero, red below)
-    p2.varea(x="time", y1=0, y2="profit_pos", source=src,
-             fill_color="#4CAF50", fill_alpha=0.25)
-    p2.varea(x="time", y1="profit_neg", y2=0, source=src,
-             fill_color="#F44336", fill_alpha=0.25)
-
-    # Revenue and cost as lighter background lines
-    p2.line(x="time", y="cumulative_revenue", source=src,
-            line_width=1.2, color="#1565C0", alpha=0.6,
-            legend_label="Revenue ($)")
-    p2.line(x="time", y="cumulative_cost", source=src,
-            line_width=1.2, color="#E53935", alpha=0.6, line_dash="dashed",
-            legend_label="Cost ($)")
-
-    # Net profit as the prominent line
-    p2.line(x="time", y="cumulative_profit", source=src,
-            line_width=2.5, color="#2E7D32",
-            legend_label="Net Profit ($)")
-
-    p2.legend.location = "top_left"
-    p2.legend.click_policy = "hide"
-
-    # ── Save / show ───────────────────────────────────────────────────────────
-    layout = column(p, p_flow, p2, sizing_mode="stretch_width")
-
+    # -- page -----------------------------------------------------------------
+    children = [
+        T.heading(title, subtitle or f"{t0:%-d %b %Y} to {t1:%-d %b %Y}, 5-minute intervals. The three detail panels share the window chosen "
+                                     "on the strip below; drag to pan, scroll to zoom, hover for values. The cumulative panel always shows the whole run."),
+        T.stat_tiles(tiles),
+        p0, p1, p2, p3, p4,
+        T.section("Cycling"),
+        row(rf_panel, T.note(
+            "Rainflow counting on the SoC trajectory, normalised by usable capacity. Life loss per cycle is Φ(δ) = a·δ^k "
+            f"(NMC fit, thesis Eq. 3.8). Deepest cycle {rf['max_depth']:.2f}, mean depth {rf['mean_depth']:.2f}."),
+            sizing_mode="stretch_width"),
+    ]
+    T.save_page(children, title=title, output_path=output_path)
     if show_plot:
-        show(layout)
-    else:
-        save(layout)
-        print(f"Plot saved to {output_path}")
-
-
-# ── Summary panel helper ──────────────────────────────────────────────────────
-
-def _build_summary_panel(df: pd.DataFrame, has_export: bool, has_load: bool):
-    """
-    Build a bar chart summarising total energy flows for the simulation period.
-
-    Always shown  : Grid Export, Grid Import, Net Import/Export
-    Shown if present: Household Load, Export (net generation = solar - load)
-    """
-    INTERVAL_HOURS = 5 / 60
-
-    # ── Compute totals ────────────────────────────────────────────────────────
-    total_export = df["grid_export_kwh"].sum()
-    total_import = df["grid_import_kwh"].sum()
-    net          = total_import - total_export   # >0 net importer, <0 net exporter
-
-    categories, values, colors = [], [], []
-
-    if has_load:
-        categories.append("Household\nLoad")
-        values.append(df["load_kw"].sum() * INTERVAL_HOURS)
-        colors.append("#E53935")
-
-    if has_export:
-        categories.append("Local\nExport")
-        values.append(df["export_kw"].sum() * INTERVAL_HOURS)
-        colors.append("#FFB300")
-
-    categories += ["Grid\nExport", "Grid\nImport", "Net Grid\nImport" if net >= 0 else "Net Grid\nExport"]
-    values     += [total_export,   total_import,   net]
-    colors     += ["#1565C0",      "#E65100",      "#BF360C" if net > 0 else "#2E7D32"]
-
-    # ── Y range (accommodate negative net bar) ────────────────────────────────
-    y_max = max(values) * 1.25
-    y_min = min(min(values) * 1.25, -y_max * 0.05)
-
-    # ── Value labels (above positive bars, below negative bars) ───────────────
-    label_offset = (y_max - y_min) * 0.03
-    label_y    = [v + label_offset if v >= 0 else v - label_offset for v in values]
-    label_text = [f"{abs(v):.0f} kWh" for v in values]
-
-    bar_src   = ColumnDataSource(dict(x=categories, top=values, color=colors))
-    label_src = ColumnDataSource(dict(x=categories, y=label_y, text=label_text))
-
-    # ── Figure ────────────────────────────────────────────────────────────────
-    p3 = figure(
-        height=280,
-        sizing_mode="stretch_width",
-        x_range=categories,
-        y_range=Range1d(start=y_min, end=y_max),
-        title="Period Energy Summary",
-        tools="",
-        toolbar_location=None,
-    )
-    p3.vbar(x="x", top="top", bottom=0, width=0.55,
-            color="color", alpha=0.85, source=bar_src)
-
-    # Zero baseline
-    p3.add_layout(Span(location=0, dimension="width",
-                       line_color="black", line_width=1))
-
-    # Value labels
-    labels = LabelSet(x="x", y="y", text="text", source=label_src,
-                      text_align="center", text_font_size="12px",
-                      text_font_style="bold")
-    p3.add_layout(labels)
-
-    p3.yaxis.axis_label  = "Energy (kWh)"
-    p3.xgrid.grid_line_color = None
-    p3.xaxis.major_label_text_font_size = "12px"
-    p3.outline_line_color = None
-
-    return p3
-
-
-def _build_price_metrics_panel(df: pd.DataFrame):
-    """
-    Bar chart: Avg Import Price, Avg Export Price, Effective Cost per kWh.
-    All values in cents per kWh (c/kWh).
-
-    The effective-cost bar is capped at ±5× the larger of the two price bars so that
-    an extreme value (common when net import is near zero) does not compress the
-    other bars into invisibility.  When the bar is capped the label shows the
-    true value with a '▲' / '▼' indicator so the user knows it is clipped.
-    """
-    total_export  = df["grid_export_kwh"].sum()
-    total_import  = df["grid_import_kwh"].sum()
-    total_cost    = df["cumulative_cost"].iloc[-1]
-    total_revenue = df["cumulative_revenue"].iloc[-1]
-    net_import    = total_import - total_export
-
-    # Convert from $/kWh to c/kWh: multiply by 100
-    avg_import = (total_cost    / total_import  * 100) if total_import  > 1e-6 else 0.0
-    avg_export = (total_revenue / total_export  * 100) if total_export  > 1e-6 else 0.0
-
-    if abs(net_import) > 1e-6:
-        net_cost_true = (total_cost - total_revenue) / net_import * 100
-    else:
-        net_cost_true = 0.0
-
-    # Cap for display so extreme values don't squash the other bars
-    price_scale   = max(abs(avg_import), abs(avg_export), 1.0)
-    cap           = price_scale * 5.0
-    net_cost_disp = max(-cap, min(cap, net_cost_true))
-    clipped       = abs(net_cost_true) > cap
-
-    if clipped:
-        arrow        = "▲" if net_cost_true > 0 else "▼"
-        net_lbl      = f"{arrow} {net_cost_true:.0f}"
-    else:
-        net_lbl      = f"{net_cost_true:.1f}"
-
-    categories = ["Avg Import\nPrice", "Avg Export\nPrice", "Effective Cost\nper kWh"]
-    values     = [avg_import,           avg_export,           net_cost_disp]
-    raw_labels = [f"{avg_import:.1f}",  f"{avg_export:.1f}",  net_lbl]
-    colors     = ["#E65100", "#1565C0", "#2E7D32" if net_cost_true <= 0 else "#BF360C"]
-
-    y_all  = [avg_import, avg_export, net_cost_disp]
-    y_max  = max(v for v in y_all if v is not None) * 1.35 if any(v > 0 for v in y_all) else  cap * 0.1
-    y_min  = min(v for v in y_all if v is not None) * 1.35 if any(v < 0 for v in y_all) else -cap * 0.1
-    y_min  = min(y_min, -y_max * 0.05)    # always show a little below zero
-
-    label_offset = (y_max - y_min) * 0.04
-    label_y = [v + label_offset if v >= 0 else v - label_offset for v in values]
-
-    bar_src   = ColumnDataSource(dict(x=categories, top=values, color=colors))
-    label_src = ColumnDataSource(dict(x=categories, y=label_y, text=raw_labels))
-
-    p4 = figure(
-        height=280,
-        sizing_mode="stretch_width",
-        x_range=categories,
-        y_range=Range1d(start=y_min, end=y_max),
-        title="Price Metrics (c/kWh)",
-        tools="",
-        toolbar_location=None,
-    )
-    p4.vbar(x="x", top="top", bottom=0, width=0.55,
-            color="color", alpha=0.85, source=bar_src)
-    p4.add_layout(Span(location=0, dimension="width",
-                       line_color="black", line_width=1))
-    p4.add_layout(LabelSet(x="x", y="y", text="text", source=label_src,
-                           text_align="center", text_font_size="12px",
-                           text_font_style="bold"))
-
-    p4.yaxis.axis_label             = "c/kWh"
-    p4.xgrid.grid_line_color        = None
-    p4.xaxis.major_label_text_font_size = "12px"
-    p4.outline_line_color           = None
-    return p4
-
-
-def _build_load_breakdown_panel(df: pd.DataFrame):
-    """
-    Bar chart showing how household load was served: Export / Battery / Grid.
-
-    NOTE: With export data (B1 = solar - load), we can't accurately break down
-    how load was served without actual solar generation data. This function
-    provides a rough approximation.
-
-    Battery contribution is inferred from the change in battery_state each
-    interval (discharge = negative delta → covers load before the grid does).
-    Labels show both kWh totals and percentage of total load.
-    """
-    IH = 5 / 60
-
-    export_kwh  = df["export_kw"] * IH if "export_kw" in df.columns else 0
-    load_kwh    = df["load_kw"]  * IH
-    bess_delta  = df["battery_state"].diff().fillna(df["battery_state"].iloc[0])
-
-    # Approximate: when export > 0, some local generation is available
-    # This is a rough estimate since we don't have actual solar data
-    local_to_load   = (-export_kwh).clip(lower=0, upper=load_kwh)
-    remaining       = (load_kwh - local_to_load).clip(lower=0)
-    batt_discharge  = (-bess_delta).clip(lower=0)
-    battery_to_load = batt_discharge.clip(upper=remaining)
-    grid_to_load    = (remaining - battery_to_load).clip(lower=0)
-
-    s = local_to_load.sum() if isinstance(local_to_load, pd.Series) else 0
-    b = battery_to_load.sum()
-    g = grid_to_load.sum()
-    total = s + b + g
-
-    if total < 1e-6:
-        return None
-
-    categories = ["Local Gen",  "Battery", "Grid"]
-    values     = [s,         b,          g]
-    colors     = ["#FFB300", "#4CAF50",  "#E65100"]
-    pcts       = [v / total * 100 for v in values]
-    raw_labels = [f"{v:.0f} kWh\n({p:.0f}%)" for v, p in zip(values, pcts)]
-
-    y_max        = max(values) * 1.35
-    label_offset = y_max * 0.04
-    label_y      = [v + label_offset for v in values]
-
-    bar_src   = ColumnDataSource(dict(x=categories, top=values, color=colors))
-    label_src = ColumnDataSource(dict(x=categories, y=label_y, text=raw_labels))
-
-    p5 = figure(
-        height=280,
-        sizing_mode="stretch_width",
-        x_range=categories,
-        y_range=Range1d(start=0, end=y_max),
-        title="Load Source Breakdown",
-        tools="",
-        toolbar_location=None,
-    )
-    p5.vbar(x="x", top="top", bottom=0, width=0.55,
-            color="color", alpha=0.85, source=bar_src)
-    p5.add_layout(LabelSet(x="x", y="y", text="text", source=label_src,
-                           text_align="center", text_font_size="12px",
-                           text_font_style="bold"))
-
-    p5.yaxis.axis_label             = "Energy (kWh)"
-    p5.xgrid.grid_line_color        = None
-    p5.xaxis.major_label_text_font_size = "12px"
-    p5.outline_line_color           = None
-    return p5
+        import webbrowser
+        webbrowser.open(output_path)

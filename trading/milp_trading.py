@@ -30,6 +30,7 @@ RESULTS_DIR = "results"
 PLOTS_DIR = "plots"
 J_SWEEP = (1, 2, 4, 8, 16)
 R_CELL = 12_000.0  # AUD, placeholder replacement cost for a Powerwall 3
+KEEP_RUN_PLOTS = {"household_J4_R12000"}   # per-run pages drawn by default; the rest need --per-run
 
 
 def load_test_data(test_csv=TEST_CSV, export_csv=TEST_EXPORT_CSV, import_csv=TEST_IMPORT_CSV, household=True, n_days=None):
@@ -77,16 +78,24 @@ def run_milp_simulation(
     )
     if verbose:
         print_metrics(label, metrics)
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    results_df.to_csv(f"{RESULTS_DIR}/milp_{label}.csv", index=False)
     if plot:
-        os.makedirs(PLOTS_DIR, exist_ok=True)
-        plot_battery_trading(
-            results_df,
-            title=plot_title or f"MILP {label}",
-            output_path=plot_output_path or f"{PLOTS_DIR}/milp_{label}.html",
-            bess_size=params.e_max,
-            show_plot=False,
-        )
+        plot_milp_run(results_df, label, params.e_max, title=plot_title, output_path=plot_output_path)
     return {"results_df": results_df, "metrics": metrics, "params": params, "label": label}
+
+
+def run_title(label: str) -> str:
+    scenario, j, r = label.split("_J")[0], label.split("_J")[1].split("_R")[0], label.split("_R")[1]
+    sc = "Household (solar + load)" if scenario == "household" else "BESS only (arbitrage)"
+    aging = "aging cost ignored (R_cell = 0)" if float(r) == 0 else f"J = {j} cycle-depth segments, R_cell = {float(r):,.0f}"
+    return f"Perfect-foresight MILP, {sc}, {aging}"
+
+
+def plot_milp_run(results_df: pd.DataFrame, label: str, e_max: float, title=None, output_path=None) -> None:
+    os.makedirs(PLOTS_DIR, exist_ok=True)
+    plot_battery_trading(results_df, title=title or run_title(label), output_path=output_path or f"{PLOTS_DIR}/milp_{label}.html",
+                         bess_size=e_max, show_plot=False)
 
 
 def print_metrics(label: str, m: dict) -> None:
@@ -128,8 +137,11 @@ def state_machine_baseline(n_days=None, verbose=True):
     return m
 
 
-def run_experiment_matrix(j_values=J_SWEEP, n_days=None, solver_name="HiGHS", plot=True, verbose=True):
-    """The agreed matrix: BESS-only and household, each at R_cell=0 (J=1) and R_cell=R_CELL over the J sweep."""
+def run_experiment_matrix(j_values=J_SWEEP, n_days=None, solver_name="HiGHS", plot=True, verbose=True, per_run_plots=False):
+    """
+    The agreed matrix: BESS-only and household, each at R_cell=0 (J=1) and R_cell=R_CELL over the J sweep.
+    plot draws the study page (and the KEEP_RUN_PLOTS pages); per_run_plots draws a page for every run.
+    """
     rows = []
     t0 = time.time()
     for household in (False, True):
@@ -137,7 +149,9 @@ def run_experiment_matrix(j_values=J_SWEEP, n_days=None, solver_name="HiGHS", pl
         configs = [(0.0, 1)] + [(R_CELL, j) for j in j_values]
         for r_cell, j in configs:
             params = BatteryParams(r_cell=r_cell, n_segments=j)
-            out = run_milp_simulation(params, household=household, n_days=n_days, solver_name=solver_name, plot=plot, verbose=verbose)
+            label = f"{scenario}_J{j}_R{int(r_cell)}"
+            out = run_milp_simulation(params, household=household, n_days=n_days, solver_name=solver_name,
+                                      plot=plot and (per_run_plots or label in KEEP_RUN_PLOTS), verbose=verbose)
             rows.append({"scenario": scenario, "r_cell": r_cell, "n_segments": j, **out["metrics"]})
 
     sm = state_machine_baseline(n_days=n_days, verbose=verbose)
@@ -160,8 +174,22 @@ def run_experiment_matrix(j_values=J_SWEEP, n_days=None, solver_name="HiGHS", pl
 
     if plot:
         os.makedirs(PLOTS_DIR, exist_ok=True)
-        plot_j_sweep(summary[summary["scenario"] != "state_machine"], title=f"MILP J sweep JAN25{suffix}", output_path=f"{PLOTS_DIR}/milp_j_sweep{suffix}.html")
+        plot_j_sweep(summary, title=f"MILP degradation study JAN25{suffix}", output_path=f"{PLOTS_DIR}/milp_j_sweep{suffix}.html")
     return summary
+
+
+def replot(n_days=None, per_run_plots=False) -> None:
+    """Redraw the study page (and KEEP_RUN_PLOTS, or every run with per_run_plots) from results/ without solving."""
+    import glob
+
+    suffix = f"_{n_days}d" if n_days else ""
+    summary = pd.read_csv(f"{RESULTS_DIR}/milp_summary{suffix}.csv")
+    plot_j_sweep(summary, title=f"MILP degradation study JAN25{suffix}", output_path=f"{PLOTS_DIR}/milp_j_sweep{suffix}.html")
+    e_max = BatteryParams().e_max
+    for path in sorted(glob.glob(f"{RESULTS_DIR}/milp_*_J*_R*.csv")):
+        label = os.path.basename(path)[len("milp_"):-len(".csv")]
+        if per_run_plots or label in KEEP_RUN_PLOTS:
+            plot_milp_run(pd.read_csv(path), label, e_max)
 
 
 def main():
@@ -171,10 +199,16 @@ def main():
     ap.add_argument("--solver", default="HiGHS", help="HiGHS (default), GUROBI or CBC")
     ap.add_argument("--no-plot", action="store_true")
     ap.add_argument("--quiet", action="store_true")
+    ap.add_argument("--plot-only", action="store_true", help="redraw the plots from results/ without solving")
+    ap.add_argument("--per-run", action="store_true", help="also draw a page for every individual run (default: study page + household J=4)")
     args = ap.parse_args()
     n_days = 3 if args.quick else args.days
+    if args.plot_only:
+        replot(n_days, per_run_plots=args.per_run)
+        return
     j_values = (1, 4) if args.quick else J_SWEEP
-    run_experiment_matrix(j_values=j_values, n_days=n_days, solver_name=args.solver, plot=not args.no_plot, verbose=not args.quiet)
+    run_experiment_matrix(j_values=j_values, n_days=n_days, solver_name=args.solver, plot=not args.no_plot, verbose=not args.quiet,
+                          per_run_plots=args.per_run)
 
 
 if __name__ == "__main__":
