@@ -147,6 +147,14 @@ Existing perfect-foresight `simulate_milp` is untouched. requirements: add
   coupled in this month: what matters is spike timing, which none of the
   forecasters captures. Candidates for Part B: a spike-probability model,
   a stochastic/scenario MILP, or a blended AEMO-plus-LSTM forecast.
+- **Correction (2026-09-21).** The two bullets above misattribute the gap. Broken
+  down by price band, all five controllers earn the same $101.53 in the ten
+  intervals above 1000 $/MWh (AEMO $100.56): the step-0 actual price reveals each
+  spike and every controller held charge, so none needed to forecast it. The gap
+  is made in ordinary arbitrage (100-300 $/MWh band: perfect $23.89 vs
+  $17.22-$20.69) and negative prices. A spike model would protect the $101 by
+  ensuring charge is held; it would not close the measured gap. See RESULTS.md
+  Study 2.
 - Outputs: results/forecast_summary.csv, results/mpc_household_J4_<name>.csv/.json,
   plots/forecast_study.html, plots/mpc_household_J4_<name>.html, models/price_lstm.pt.
 

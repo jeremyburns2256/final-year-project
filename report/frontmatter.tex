@@ -1,0 +1,75 @@
+% ── Cover Sheet ──────────────────────────────────────────────
+% Uncomment to attach the signed assessment cover sheet as a
+% separate page before the title page.
+% \includepdf[pages=1]{coversheet.pdf}
+
+% ── Title Page ───────────────────────────────────────────────
+% Margins specified: 30mm L/R/B, 60mm top
+\newgeometry{left=30mm, right=30mm, top=60mm, bottom=30mm}
+\begin{titlepage}
+  \thispagestyle{empty}
+  \centering
+
+  {\LARGE\bfseries \reportTitle \par}
+
+  \vspace{40mm}
+
+  {\large \reportAuthor \par}
+
+  \vspace{10mm}
+
+  {\normalsize
+    A thesis submitted in partial fulfilment of the requirements\\
+    for the degree of \reportDegree\\
+    at The University of Newcastle, Australia.
+  \par}
+
+  \vfill
+
+  {\normalsize
+    Supervised by \supervisorName\\[6pt]
+    School of Engineering\\
+    The University of Newcastle, Australia\\[6pt]
+    \reportYear
+  \par}
+\end{titlepage}
+\restoregeometry    % Restore standard margins
+
+% ── Front Matter — Roman numerals ────────────────────────────
+\pagenumbering{roman}
+\setcounter{page}{1}
+
+% % ── Abstract ─────────────────────────────────────────────────
+% \chapter*{Abstract}
+% \addcontentsline{toc}{chapter}{Abstract}
+
+% % Aim for 1/3 to 2/3 of a page.
+% Your abstract goes here. It should concisely describe the \emph{intentions},
+% \emph{scope}, and \emph{outcomes} of the project. Avoid citations and undefined
+% abbreviations. Write this last, after the rest of the report is complete.
+
+
+% ── Table of Contents ────────────────────────────────────────
+\tableofcontents
+
+% Optionally include lists of figures/tables
+\listoffigures
+\addcontentsline{toc}{chapter}{List of Figures}
+
+\listoftables
+\addcontentsline{toc}{chapter}{List of Tables}
+
+% ── Abbreviations / Nomenclature (optional) ──────────────────
+% Uncomment and populate if needed.
+%\chapter*{Abbreviations}
+%\addcontentsline{toc}{chapter}{Abbreviations}
+%\begin{tabular}{@{}ll}
+%  NEM  & National Electricity Market \\
+%  BESS & Battery Energy Storage System \\
+%\end{tabular}
+
+% ============================================================
+%  MAIN BODY — Arabic numerals from Chapter 1
+% ============================================================
+\pagenumbering{arabic}
+\setcounter{page}{1}

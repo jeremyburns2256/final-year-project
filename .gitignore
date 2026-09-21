@@ -1,6 +1,6 @@
 *.html
 # generated plots are tracked
-!trading/plots/*.html
+!code/trading/plots/*.html
 
 # Python cache files
 *.pyc
@@ -15,17 +15,23 @@ venv/
 # LibreOffice lock files
 .~lock.*#
 
+# ── code ────────────────────────────────────────────────────
 # AEMO raw archives (regenerate with nemosis)
-trading/data/nemosis_cache/
+code/trading/data/nemosis_cache/
 
 # trained forecasters are tracked (small)
 
 # per-interval simulation output and run logs (1-2 MB each; regenerate with the drivers)
-trading/results/milp_*_R*.csv
-trading/results/mpc_*.csv
-trading/results/*.log
+code/trading/results/milp_*_R*.csv
+code/trading/results/mpc_*.csv
+code/trading/results/*.log
 
 # per-run plot pages are drawn on demand (--per-run); only the headline run is tracked
-trading/plots/milp_*_R*.html
-trading/plots/mpc_*.html
-!trading/plots/milp_household_J4_R12000.html
+code/trading/plots/milp_*_R*.html
+code/trading/plots/mpc_*.html
+!code/trading/plots/milp_household_J4_R12000.html
+
+# ── report ──────────────────────────────────────────────────
+# All LaTeX output, including main.pdf, is written here by .latexmkrc.
+# Rebuild with: cd report && latexmk -pdf main.tex
+report/build/
