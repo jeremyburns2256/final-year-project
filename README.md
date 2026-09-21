@@ -20,7 +20,8 @@ to a PDF, `code/` is what produces the numbers that prose reports.
 
 ### `report/`
 
-`cd report && latexmk -pdf main.tex`. `main.tex` is an outline of `\input` lines;
+`cd report && latexmk -pdf main.tex`, which writes `report/build/main.pdf`.
+`main.tex` is an outline of `\input` lines;
 each chapter is its own file under `chapters/`. See
 [`report/README.md`](report/README.md).
 

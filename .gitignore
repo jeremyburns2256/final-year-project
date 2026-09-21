@@ -31,18 +31,7 @@ code/trading/plots/milp_*_R*.html
 code/trading/plots/mpc_*.html
 !code/trading/plots/milp_household_J4_R12000.html
 
-# ── report (LaTeX build artefacts; rebuild with latexmk -pdf main.tex) ──
-report/*.aux
-report/*.bbl
-report/*.blg
-report/*.fdb_latexmk
-report/*.fls
-report/*.lof
-report/*.log
-report/*.lot
-report/*.out
-report/*.synctex.gz
-report/*.toc
-report/*.pdf
-report/chapters/*.aux
-report/appendices/*.aux
+# ── report ──────────────────────────────────────────────────
+# All LaTeX output, including main.pdf, is written here by .latexmkrc.
+# Rebuild with: cd report && latexmk -pdf main.tex
+report/build/

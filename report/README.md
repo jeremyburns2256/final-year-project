@@ -6,18 +6,23 @@ LaTeX source for the final year project report.
 
 ```bash
 cd report
-latexmk -pdf main.tex     # produces main.pdf
-latexmk -C                # remove build artefacts
+latexmk -pdf main.tex     # produces build/main.pdf
+latexmk -C                # empties build/
 ```
 
-Build artefacts (`main.pdf`, `*.aux`, `*.log`, …) are gitignored — only source
-is tracked.
+Everything generated — `main.pdf` along with the `.aux`/`.log`/`.toc` churn —
+is written to `build/` by `.latexmkrc`, so this directory holds only source.
+`build/` is gitignored.
+
+If your editor has its own LaTeX integration, point its output directory at
+`build/` too, or let it read `.latexmkrc`.
 
 ## Layout
 
 | Path | Contents |
 | --- | --- |
 | `main.tex` | Document outline only: the `\input` list of chapters. Start here. |
+| `.latexmkrc` | Build configuration; sends all output to `build/`. |
 | `preamble.tex` | Packages, page geometry, caption/numbering style, title metadata. |
 | `frontmatter.tex` | Title page, table of contents, lists of figures and tables. |
 | `chapters/` | One file per chapter, prefixed in reading order. |
@@ -26,6 +31,7 @@ is tracked.
 | `references.bib` | BibTeX database, grouped by topic with `% ──` banners. |
 | `images/` | Figures included by the chapters. |
 | `assets/` | Source PDFs: datasheets, network price lists, the Gantt chart. |
+| `build/` | Generated output, including `main.pdf`. Gitignored; safe to delete. |
 
 ## Conventions
 
