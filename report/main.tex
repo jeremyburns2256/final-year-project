@@ -1,0 +1,46 @@
+% ============================================================
+%  Final Year Project Report
+%  University of Newcastle — B.E. Electrical / Computer Systems
+%
+%  Build with:  latexmk -pdf main.tex        (from this directory)
+%  Clean with:  latexmk -C
+%
+%  This file is the outline of the report. Prose lives in the
+%  chapter files listed below; packages and formatting live in
+%  preamble.tex. See README.md.
+% ============================================================
+
+\input{preamble}
+
+\begin{document}
+
+\input{frontmatter}
+
+% ============================================================
+%  MAIN BODY — Arabic numerals from Chapter 1
+% ============================================================
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\input{chapters/01-introduction}
+\input{chapters/02-system-model}
+\input{chapters/03-technical-background}
+\input{chapters/04-literature}
+\input{chapters/05-results}
+\input{chapters/06-proposed-methods}
+
+\input{backmatter}
+
+% ============================================================
+%  APPENDICES
+% ============================================================
+\begin{appendices}
+
+% Pages numbered A-1, A-2, B-1, B-2, etc.
+\renewcommand{\thepage}{\thechapter-\arabic{page}}
+
+\input{appendices/gantt}
+
+\end{appendices}
+
+\end{document}

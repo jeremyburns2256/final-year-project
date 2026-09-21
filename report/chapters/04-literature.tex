@@ -1,0 +1,57 @@
+\chapter{Current State of Literature}
+
+\section{State Forecasting}
+\subsection{Electricity Prices}
+\label{sub:forecast:price}
+The electricity wholesale price in the NEM experiences frequent price fluctuations driven by supply-demand imbalances \cite{mayer2018electricity}. Statistical modelling techniques have traditionally been used to predict pricing and seasonal variations. Alharbi and Csala \cite{alharbi2022sarimax} demonstrated the effectiveness of Seasonal Autoregressive Integrated Moving Average with Exogenous Factors (SARIMAX) forecasting for electricity prices in Saudi Arabia.  \par
+Zhou et al. \cite{zhou2025nem} compared a variety of prediction models on the NSW NEM. Three distinct time frames were used to enhance accuracy and robustness of forecasting. A time frame with significant volatility, limited volatility and significant but temporary volatility were selected. The features selected to inform the prediction were the Regional Reference Price (RRP), FCAS prices and system demand. \par
+The effectiveness of the models were evaluated using metric including Mean Absolute Error ($MAE$), Root Mean Squared Error ($RMSE$), Mean Absolute Percentage Error ($MAPE$), and R-squared ($R^2$). It was shown that XGBoost achieved the most accurate forecasts. LSTM and SARIMAX were shown to provide reasonable results in stable regimes but with declining accuracy over periods of volatility. 
+
+\subsection{Solar Output}
+\label{sub:forecast:solar}
+The most important factor in determining output from a residential solar system is weather conditions. However, meteorological forecasting has considerable uncertainty that must be considered when predicting future solar generation. Zhong et al.\ \cite{zhong2020solar} systematically compared Numerical Weather Prediction (NWP) input variables across ANN, LSTM, and XGBoost models. The study found that XGBoost with all NWP variables, cumulative irradiation, and cumulative rainfall achieves the lowest forecasting error, outperforming both ANN and LSTM. The study further suggests that for a model with only irradiance data available, XGBoost continues to outperform ANN and LSTM models.
+
+\subsection{Residential Load}
+Expected future residential load plays a significant role in deciding if a home should charge or discharge a battery. Cao et al. \cite{cao2015hybrid} presented an autoregressive integrated moving average (ARIMA) model and Similar Day Method for load forecasting. It demonstrated that ARIMA worked best for stable weather days whilst Similar Day Method outperformed ARIMA on days with sudden weather shifts. \par
+Machine learning has been used for residential load prediction. Kong et al. \cite{kong2019lstm} used machine learning to forecast residential loads in NSW and found LSTM outperformed backpropagation neural networks (BPNN) and extreme learning machines (ELM). The paper found that aggregating the loads at the substation level improved the accuracy of the methods, indicating the difficulty in dealing with highly variable individual household loads.
+
+\section{Electricity Trading}
+\label{sec:bg2}
+
+\subsection{Commercial Battery Energy Storage Systems}
+\label{sec:bg2.1}
+The majority of research in battery arbitrage has been conducted on commercial scale battery energy storage systems (BESS). Karimi-Arpanahi et al.\cite{KarimiArpanahi2024} outlined a MILP methodology for battery deployment in the NEM for both wholesale and FCAS markets. The study compares decisions made by the MILP model to actions by battery operators and highlights the unrealised revenue based on the existing BESS bidding strategies. The paper highlighted that price forecast inaccuracy was a heavy indicator in simulated BESS underperforming. \par
+
+Cao et al. \cite{Cao2020} outlined a machine learning model for predicting and trading wholesale electricity on the UK market. It identified three simplifying assumptions made in existing literature as: 1) perfect foresight about electricity market prices; 2) constant battery charging/discharging efficiency; 3) simple representation of battery degradation. 
+The MDP problem formulation for energy arbitrage outlined by Cao et al. is defined as:
+\begin{enumerate}
+    \item State space: The state space at time instant t is defined as
+$s_t = (c_t, . . . , ct_{22}, ct_{23}, SoC_t)$. where $c_t, . . . , ct_{22}, ct_{23}$ is
+the predicted price for the next day. Using the predicted price
+signal is to make sure the agent knows whether the price signal
+is going up or down in order to make the best control action.
+    \item Action space: The charging/discharging action space is discretised as 
+        \begin{equation}
+            a = \left( -P^{\max}_{e},\ -0.5P^{\max}_{e},\ 0,\ 0.5P^{\max}_{e},\ P^{\max}_{e} \right)
+            \label{eq:actionspace}
+        \end{equation}
+    where $P^{\max}_{e}$ is the maximum charging/discharging power of the battery inverter.
+    \item Reward: The design of reward function is the key factor in the algorithm. The reward in the energy arbitrage problem should include not only the profit from the discharging action, but also the degradation costs of the control action.
+\end{enumerate}
+
+
+The paper compares reinforcement learning models and finds that NoisyNet-DoubleDDQN (NN-DDQN) models outperform the proposed MILP method by 58.51\%. It also found that NN-DQN models outperformed Vanilla DQN.
+
+\subsection{Residential Battery Energy Storage Systems}
+\label{sec:bg2.2}
+Scheduling batteries in home energy management systems requires the consideration of PV output, load demand, battery degradation costs and wholesale pricing. Correra et al. \cite{correa2018stochastic} designed a MILP solution for households in Portugal with PV, BESS and electric water heater (EWH) systems to minimise electricity costs. The paper demonstrated that a stochastic optimisation of the problem outperformed a deterministic optimisation due to the variability of PV and load forecasting. The model used a simplified persistence model for day-ahead price forecasting that would not be suitable for the variability shown in the NEM. \par
+
+Abdulla et al. \cite{abdulla2018optimal} proposes a stochastic dynamic programming (SDP) approach to operating BESS systems for households in Australia. The paper outlined three degradation models of increasing fidelity from fixed per kWh, static multi-factor and dynamic multi-factor degradation. The paper finds that when considering battery lifetime value, the SDP considering degradation achieves a net return of +2.3\% whilst when battery degradation is ignored a net return of -3.1\% is achieved. 
+
+\label{sec:bg2.3}
+
+\subsection{Residential Demand Response}
+An opportunity for residential consumers to respond to market pricing signals is through demand response (DR). DR involves customers adjusting their electricity consumption based on pricing signals. In \cite{9715625}, the authors analysed the potential for demand management in response to negative wholesale prices in the NEM. It found that the number of negative price events with DR opportunities are increasing with greater variable renewable energy penetration. Mahmoudi et al. modelled DR for energy retailers in the NEM. It was found that through aggregating DR across the customer base, retailers were able to achieve a reduction in wholesale electricity purchase volume during peak pricing events \cite{Mahmoudi2013}. Farzambehboudi et al. \cite{Farzambehboudi2018} conducted modelling on a household with smart metering data in the Turkish electricity market. They concluded that load shifting would reduce household electricity expenditure by 20\% on a Time of Use (ToU) pricing structure through controlling existing household appliances. In \cite{5534825}, thermal storage air-conditioning was modelled with DR to wholesale prices in the NEM. The paper found that the demand response program not only reduced the purchase cost of electricity for the program owner but also reduced the market clearing price for the NEM. There are additional significant opportunities for demand response from EV charging. Through adjusting EV charging based on market signals, significant consumer savings and demand reduction can be achieved \cite{5661888}.
+
+\section{Summary}
+The state forecasting of 

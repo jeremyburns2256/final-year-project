@@ -1,0 +1,36 @@
+\chapter{Proposed Methods and Plans}
+A Ganntt chart for part B of this project can be found in Appendix~\ref{app:gannt}.
+
+\section{Data Analysis}
+There are two central sources of data considered in this project: 1) load and wholesale price in the NSW NEM; 2) household solar and load data. Ten years of load and wholesale price data have been collated from AEMO. Solar and household load data have been supplied by Ausgrid for 300 homes. The following data study is  proposed:
+
+\begin{itemize}
+    \item Examine autocorrelation and residual autocorrelation across network load, price, solar and household load. This will validate our ability to model future scenarios. It is predicted that daily and yearly autocorrelation trends will be present.
+\end{itemize}
+
+\section{BESS Only Model}
+\label{sec:bess_only}
+This section proposes to replicate existing work on commercial BESS systems to validate the Python framework and data. The system will be modelled as a BESS interacting with the wholesale market with perfect forecasting. The simplified approach has been chosen to develop models and an understanding of the tools available. It will also provide a baseline for future models. The outcomes of this work will be:
+
+\begin{itemize}
+    \item Evaluate and select a model for battery degradation and charge/discharge efficiency.
+    \item Quantify the effect of degradation model fidelity by sweeping the number of cycle depth segments $J$ from the linear case $J=1$ upwards, comparing dispatch behaviour, revenue and simulated battery life.
+    \item Validate the piecewise linear aging cost against an ex post rainflow cycle count of the resulting SoC profile, to confirm the model reproduces the cycle depths it is intended to approximate and to measure the error as a function of $J$.
+    \item Refit the cycle depth stress function \eqref{eq:stressfn} to LFP cycle life data and test the sensitivity of dispatch to the exponent.
+    \item Formulate a basic MDP.
+    \item A reusable Python framework to ingest data, run machine learning models and solve MILP problems.
+    \item A comparison between MILP and ML model performance.
+\end{itemize}
+
+\section{Household with CER Model}
+\label{sec:household_cer_model}
+This section of work will model and optimise households operating CER whilst engaging with the NEM wholesale market. It will build upon Section~\ref{sec:bess_only} by integrating household load and solar data into problem formulation and solutions. It will continue to use the assumption of perfect forecasting and extend this perfect information to household load and solar generation. The outcome of this work will be:
+\begin{itemize}
+    \item Formulation of a MDP for households with CER.
+    \item Simulation results for MILP and ML solutions to optimisation.
+    \item A comparison between optimisation techniques to evaluate model performance.
+\end{itemize}
+
+
+\section{Price Forecasting}
+This section of work will develop a model using ML to forecast NEM wholesale pricing, household solar generation and household load. A variety of ML models may be explored including LSTM and XGBoost. This work will then be combined with Section~\ref{sec:household_cer_model}, to remove the perfect forecasting assumption.

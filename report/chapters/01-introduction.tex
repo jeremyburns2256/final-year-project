@@ -1,0 +1,22 @@
+\chapter{Introduction}
+\label{ch:intro}
+
+\section{Background}
+\label{sec:background}
+The Australian National Electricity Market (NEM) supplies electricity to customers across Australia in NSW, Victoria, Tasmania, the ACT and South Australia. In the NEM, wholesale electricity prices are determined in 5 minute intervals. Households have traditionally navigated the NEM through electricity retailers that charge a fixed or time of use based price per kWh. This project will explore options to optimise returns for households with solar and battery systems participating in the NEM at wholesale prices.
+
+\section{National Electricity Market}
+The wholesale of electricity in the National Electricity Market consists of a spot market, where prices are determined in real time. Each region (state/territory) is an individual market with a spot price. The market consists of a 5-minute dispatch period. Energy generators bid a volume of capacity and a price at which to serve the market for the dispatch period.
+
+Using the bids from generators, the Australian Energy Market Operator (AEMO) will use the National Electricity Market Dispatch Engine to order bids from least to most expensive and determine which generators will be dispatched. AEMO's objective is to dispatch the lowest cost generation to meet expected demand \cite{aemc_dispatch}. The highest price paid for wholesale electricity is paid to all generators instructed to dispatch by AEMO. 
+
+The market mechanisms consist of a Market Price Cap (MPC) of \$20,300/MWh and a cumulative price threshold (CPT), which is the maximum price across seven days' worth of trade at \$1,823,600/MWh from 1 July 2025 to 30 June 2026. This value is indexed to CPI each year by the Australian Energy Market Commission \cite{aemc_market_price_cap}. There are additional markets for ancillary services \cite{aemo_ancillary_services} that will not be addressed in this report but have the potential to be revenue streams for households participating in Virtual Power Plants and are regularly referenced in related literature.
+
+\section{Motivation}
+\label{sec:motivation}
+
+Australia has one of the highest rates of solar uptake in the world, with over 4.3 million households having rooftop solar  \cite{rooftop_solar_and_storage_report_CEC}. The rapid price reduction of home battery systems and the introduction of the Federal Government's Cheaper Home Battery scheme, have also driven a dramatic increase in battery installations. In the second half of 2025, 183,245 home batteries were installed in Australia \cite{rooftop_solar_and_storage_report_CEC}. The increase in consumer energy resources (CER) across the NEM is creating both opportunities for customers and challenges for utilities and system operators. 
+
+Consumers are increasingly playing prosumer roles in the NEM: consuming, producing, and selling electricity. This has opened opportunities for households to play an active role in the market, engaging with the NEM to minimise electricity costs. However, it has also placed stress on the distribution networks, with consumer energy resources being largely uncontrolled and unresponsive to market signals. The continued uptake of electric vehicles (EVs) also presents an opportunity for consumers to play a more active role in their consumption of electricity. Through exposure to market pricing signals, consumers can engage in energy demand response (DR) by flexing charge rates of EVs. Demand response offers households the ability to self consume more solar, reducing grid import costs, and reduce strain on distribution networks.
+
+This opportunity for market exposure has been constrained by the complexity of the NEM. Mayer et al. \cite{mayer2018electricity}, in a study of 28 power markets across Asia, Australia, Europe and North America categorised the NEM as 'by far the most volatile markets considered in this study'. The NEM's volatility offers an opportunity for more efficient utilisation of CER but also exposes consumers to risk from price peaks. 
