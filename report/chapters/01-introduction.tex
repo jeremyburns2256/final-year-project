@@ -1,3 +1,4 @@
+% !TEX root = ../main.tex
 \chapter{Introduction}
 \label{ch:intro}
 
@@ -10,7 +11,7 @@ The wholesale of electricity in the National Electricity Market consists of a sp
 
 Using the bids from generators, the Australian Energy Market Operator (AEMO) will use the National Electricity Market Dispatch Engine to order bids from least to most expensive and determine which generators will be dispatched. AEMO's objective is to dispatch the lowest cost generation to meet expected demand \cite{aemc_dispatch}. The highest price paid for wholesale electricity is paid to all generators instructed to dispatch by AEMO. 
 
-The market mechanisms consist of a Market Price Cap (MPC) of \$20,300/MWh and a cumulative price threshold (CPT), which is the maximum price across seven days' worth of trade at \$1,823,600/MWh from 1 July 2025 to 30 June 2026. This value is indexed to CPI each year by the Australian Energy Market Commission \cite{aemc_market_price_cap}. There are additional markets for ancillary services \cite{aemo_ancillary_services} that will not be addressed in this report but have the potential to be revenue streams for households participating in Virtual Power Plants and are regularly referenced in related literature.
+The market mechanisms consist of a Market Price Cap (MPC) of \$20,300/MWh and a cumulative price threshold (CPT) of \$1,823,600, which limits the sum of the spot prices over any seven consecutive days of trading, for 1 July 2025 to 30 June 2026. Both values are indexed to CPI each year by the Australian Energy Market Commission \cite{aemc_market_price_cap}. The simulations in this report use January 2025, which falls in the 2024--25 financial year, when the MPC was \$17,500/MWh. There are additional markets for ancillary services \cite{aemo_ancillary_services} that will not be addressed in this report but have the potential to be revenue streams for households participating in Virtual Power Plants and are regularly referenced in related literature.
 
 \section{Motivation}
 \label{sec:motivation}

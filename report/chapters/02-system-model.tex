@@ -1,3 +1,4 @@
+% !TEX root = ../main.tex
 \chapter{System Model}
 \label{ch:systemmodel}
 
@@ -25,8 +26,10 @@ Figure~\ref{fig:sysmodel} shows the basic system model that will be considered.
     \item[$C^b_t$] Battery degradation cost $t$ (\$)
   \item[$\Delta t$] NEM dispatch period, 5 minutes
   \item[$N$] Network tariff (\$/kWh)
-  \item[$P_{max}$] The maximum charging/discharging rate from battery inverter (kW) 
-    \item[$E_{max}$] The maximum capacity of battery (kWh) 
+  \item[$P^c_{max}, P^d_{max}$] The maximum charging and discharging rates of the battery inverter (kW)
+    \item[$E_{max}$] The maximum capacity of battery (kWh)
+    \item[$E_{min}$] The minimum permitted state of charge (kWh), zero in this work because $E_{max}$ is the usable capacity
+    \item[$E_0$] The state of charge at the start of the horizon (kWh)
     \item[$\eta^c$] Battery charging efficiency (\%)
     \item[$\eta^d$] Battery discharging efficiency (\%)
     \item[$\alpha_d$] Battery degradation coefficient (\$/kWh)
@@ -151,7 +154,7 @@ Denote the net household electricity before battery as
     H = G-A
 \end{equation}
 The electricity spot price, in contrast, is revealed to the market by AEMO at the beginning
-of each time slot $n$. The regional system demand $S$ published by AEMO is likewise
+of each time slot $n$. The regional system demand $L$ published by AEMO is likewise
 available for all time-slots before slot $n$.
 
 The charge and discharge decisions at slot $n$ are functions of the system observations
@@ -162,7 +165,7 @@ charge/discharge decisions, \eqref{eq:sysknowledge:decision}.
     \begin{align}
         \textbf{V}_n &= \begin{bmatrix}
             H_1 & H_2 & \cdots & H_{n-1} & \\
-            S_{1} & S_2 & \cdots & S_{n-1} & \\
+            L_{1} & L_2 & \cdots & L_{n-1} & \\
             R_{1} & R_2 & \cdots & R_{n-1} & R_{n}
         \end{bmatrix} \label{eq:sysknowledge:state}  \\
         \textbf{K}_n &= \begin{bmatrix}
@@ -172,8 +175,8 @@ charge/discharge decisions, \eqref{eq:sysknowledge:decision}.
     \end{align}
 \end{subequations}
 
-The charge and discharge power at each time slot $n$ are determine
-that maps the available system observations $\textbf{V}_n$ and pri
+The charge and discharge power at each time slot $n$ are determined by a policy
+that maps the available system observations $\textbf{V}_n$ and prior decisions
 $\textbf{K}_n$ to a dispatch decision:
 \begin{subequations}
     \begin{align}
