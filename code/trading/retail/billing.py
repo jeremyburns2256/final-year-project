@@ -48,11 +48,15 @@ def no_battery_bill(df: pd.DataFrame, import_price: np.ndarray, export_price: np
     The counterfactual: the same household, same month, no battery.
 
     The meter already reports the post-solar position (E1 import, B1 net export),
-    so the no-battery bill needs no dispatch model at all.
+    so the no-battery bill needs no dispatch model at all. The two channels are
+    netted within each 5-min interval, because every dispatch model here sees only
+    the net local power and so nets its own grid position the same way. Billing
+    the raw channels instead would credit the battery with a saving (import at the
+    usage rate against export at the feed-in rate, in the intervals where the meter
+    registers both) that no dispatch decision produced.
     """
-    imp = df[import_col].to_numpy(dtype=float) * INTERVAL_HOURS
-    exp = df[export_col].to_numpy(dtype=float) * INTERVAL_HOURS
-    return bill(imp, exp, import_price, export_price, supply_charge_total)
+    net = (df[export_col].to_numpy(dtype=float) - df[import_col].to_numpy(dtype=float)) * INTERVAL_HOURS
+    return bill(np.clip(-net, 0, None), np.clip(net, 0, None), import_price, export_price, supply_charge_total)
 
 
 def battery_bill(results: pd.DataFrame, import_price: np.ndarray, export_price: np.ndarray,
@@ -127,7 +131,7 @@ def period_breakdown(results: pd.DataFrame, df: pd.DataFrame, tariff) -> pd.Data
 
     Shows the mechanism directly. The self-consumption rule never imports to
     charge, so every row should show import shed and export shed, never import
-    added; on a ToU offer the peak row is where most of the value sits, because
+    added (the optimised controller may add off-peak import); on a ToU offer the peak row is where most of the value sits, because
     that is where the displaced evening import is priced.
     """
     ts = df["SETTLEMENTDATE"]
@@ -135,8 +139,9 @@ def period_breakdown(results: pd.DataFrame, df: pd.DataFrame, tariff) -> pd.Data
     p_imp = tariff.import_price(ts)
     p_exp = tariff.export_price(ts)
 
-    base_imp = df["IMPORT_KW"].to_numpy(dtype=float) * INTERVAL_HOURS
-    base_exp = df["EXPORT_KW"].to_numpy(dtype=float) * INTERVAL_HOURS
+    base_net = (df["EXPORT_KW"].to_numpy(dtype=float) - df["IMPORT_KW"].to_numpy(dtype=float)) * INTERVAL_HOURS
+    base_imp = np.clip(-base_net, 0, None)   # netted per interval, as in no_battery_bill
+    base_exp = np.clip(base_net, 0, None)
     batt_imp = results["grid_import_kwh"].to_numpy(dtype=float)
     batt_exp = results["grid_export_kwh"].to_numpy(dtype=float)
 

@@ -41,7 +41,7 @@ def load_meter_data(csv_path, stream=None):
         stream: Optional stream identifier (e.g., 'B1', 'E1', 'E6'). If None, returns all streams.
 
     Returns:
-        pandas.DataFrame: DataFrame with 'timestamp' column and columns for each data stream.
+        pandas.DataFrame: DataFrame with 'timestamp' column (interval END, NEM time) and columns for each data stream.
                          Common streams: 'B1' (export = solar - load), 'E1' (grid import), 'E6' (controlled load)
     """
     data_streams = {}
@@ -72,8 +72,11 @@ def load_meter_data(csv_path, stream=None):
                         if value:  # Skip empty values
                             try:
                                 reading = float(value)
-                                # Calculate timestamp for this interval (5-minute intervals)
-                                timestamp = date + timedelta(minutes=5*i)
+                                # Stamp each reading with its interval END, the same convention
+                                # as the NEM SETTLEMENTDATE it is joined to: reading i of the
+                                # day covers [5i, 5(i+1)) minutes, so the first stamp is 0:05
+                                # and the last is 0:00 on the following day.
+                                timestamp = date + timedelta(minutes=5*(i+1))
                                 data_streams[current_stream]['timestamps'].append(timestamp)
                                 data_streams[current_stream]['values'].append(reading)
                             except ValueError:
@@ -182,3 +185,16 @@ def export_meter_load_csv(meter_csv_path, output_csv_path):
 
     load_df.to_csv(output_csv_path, index=False)
     print(f"Exported {len(load_df)} grid-sourced load records to {output_csv_path}")
+
+
+def export_month_csvs(full_csv_path, year, month, output_csv_path):
+    """
+    Slice one calendar month out of a full export/import CSV written by the
+    functions above. Stamps are interval-ending, so the month runs from 0:05 on
+    the 1st to 0:00 on the 1st of the following month, matching price_<MON><YY>.csv.
+    """
+    df = pd.read_csv(full_csv_path)
+    start = pd.to_datetime(df["SETTLEMENTDATE"], dayfirst=True) - timedelta(minutes=5)
+    out = df[(start.dt.year == year) & (start.dt.month == month)]
+    out.to_csv(output_csv_path, index=False)
+    print(f"Wrote {len(out)} rows to {output_csv_path}")

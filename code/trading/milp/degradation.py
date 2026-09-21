@@ -7,13 +7,13 @@ Cost of Batteries Participating in Electricity Markets".
 
 Thesis references: Eq. 2.3 (c_j), Eq. 3.8 (Phi), Section 6.2 (rainflow validation).
 
-NOTE ON EQ. 2.3: the thesis as drafted omits a factor of J. Xu Eq. (5) is
+NOTE ON EQ. 2.3: thesis Eq. 2.3 is Xu Eq. (5),
 
     c_j = R * J / (eta_d * E_max) * [Phi(j/J) - Phi((j-1)/J)]      [$/kWh]
 
 The J is required dimensionally: segment j delivers only eta_d * E_max / J kWh,
 so the life consumed by that segment, R*[Phi(j/J)-Phi((j-1)/J)] dollars, must be
-spread over E_max/J kWh, not E_max kWh. The corrected form is used here.
+spread over E_max/J kWh, not E_max kWh. (An early draft of the thesis omitted it.)
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ def segment_costs(
 ) -> np.ndarray:
     """
     Marginal aging cost c_j ($/kWh of AC discharge) for each of J evenly spaced
-    cycle-depth segments. Corrected thesis Eq. 2.3 / Xu Eq. (5).
+    cycle-depth segments. Thesis Eq. 2.3 / Xu Eq. (5).
 
     Returns an array of length J, non-decreasing because Phi is convex.
     """

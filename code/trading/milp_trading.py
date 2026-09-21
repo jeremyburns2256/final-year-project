@@ -30,6 +30,9 @@ RESULTS_DIR = "results"
 PLOTS_DIR = "plots"
 J_SWEEP = (1, 2, 4, 8, 16)
 R_CELL = 12_000.0  # AUD, placeholder replacement cost for a Powerwall 3
+EXPORT_LIMITS_KW = (None, 10.0, 5.0)  # grid export limit study; None = unlimited (the headline runs)
+SM_BUY_THRESHOLD, SM_SELL_THRESHOLD = 69.70, 127.20  # thesis Table 5.1 (DEC24 grid search)
+SPIKE_RRP = 1000.0  # $/MWh, the price-spike band used in RESULTS.md
 KEEP_RUN_PLOTS = {"household_J4_R12000"}   # per-run pages drawn by default; the rest need --per-run
 
 
@@ -120,7 +123,7 @@ def state_machine_baseline(n_days=None, verbose=True):
     from utils import bess_simulator
 
     out = run_trading_simulation(
-        buy_threshold=68.22, sell_threshold=127.20, optimise_thresholds=False, verbose=False, plot=False
+        buy_threshold=SM_BUY_THRESHOLD, sell_threshold=SM_SELL_THRESHOLD, optimise_thresholds=False, verbose=False, plot=False
     )
     results_df = out["results_df"]
     if n_days is not None:
@@ -133,7 +136,7 @@ def state_machine_baseline(n_days=None, verbose=True):
     m["degradation_cost_model"] = float("nan")
     m["rainflow_relative_error"] = float("nan")
     if verbose:
-        print_metrics(f"state_machine (buy 68.22 / sell 127.20, {bess_simulator.BESS_SIZE} kWh)", m)
+        print_metrics(f"state_machine (buy {SM_BUY_THRESHOLD} / sell {SM_SELL_THRESHOLD}, {bess_simulator.BESS_SIZE} kWh)", m)
     return m
 
 
@@ -178,6 +181,49 @@ def run_experiment_matrix(j_values=J_SWEEP, n_days=None, solver_name="HiGHS", pl
     return summary
 
 
+def run_export_limit_study(limits=EXPORT_LIMITS_KW, n_segments=4, n_days=None, solver_name="HiGHS", verbose=True):
+    """
+    Household, perfect foresight, J = n_segments, under a grid export limit.
+
+    The headline runs enforce no limit and export up to ~16 kW during price spikes
+    (battery at 11.04 kW on top of the solar surplus). This measures how much of the
+    value added survives a 10 kW or 5 kW connection limit. Solar curtailment is not
+    modelled, so under a limit the battery must keep headroom for any surplus above it.
+    Written to results/milp_export_limit.csv, separate from the J sweep.
+    """
+    from milp.model import INTERVAL_HOURS
+
+    df = load_test_data(household=True, n_days=n_days)
+    rrp = df["RRP"].to_numpy(dtype=float)
+    net = (df["EXPORT_KW"] - df["IMPORT_KW"]).to_numpy(dtype=float)
+    tariff = BatteryParams().network_tariff
+    no_batt = (net.clip(min=0) * rrp / 1000 - (-net).clip(min=0) * (rrp / 1000 + tariff)) * INTERVAL_HOURS
+    spike = rrp > SPIKE_RRP
+    rows = []
+    for lim in limits:
+        params = BatteryParams(r_cell=R_CELL, n_segments=n_segments, export_limit_kw=lim)
+        results_df, m = simulate_milp(df, params, export_col="EXPORT_KW", import_col="IMPORT_KW",
+                                      solver_name=solver_name, verbose=False, r_cell_valuation=R_CELL)
+        at_meter = (results_df["grid_export_kwh"] * rrp / 1000 - results_df["grid_import_kwh"] * (rrp / 1000 + tariff)).to_numpy()
+        added = at_meter - no_batt
+        rows.append({"export_limit_kw": lim, "n_segments": n_segments, **m,
+                     "value_added": float(added.sum()), "value_added_spike": float(added[spike].sum()),
+                     "value_added_non_spike": float(added[~spike].sum()),
+                     "max_grid_export_kw": float(results_df["grid_export_kwh"].max() / INTERVAL_HOURS)})
+    summary = pd.DataFrame(rows)
+    suffix = f"_{n_days}d" if n_days else ""
+    path = f"{RESULTS_DIR}/milp_export_limit{suffix}.csv"
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    summary.to_csv(path, index=False)
+    if verbose:
+        cols = ["export_limit_kw", "net_profit_ex_degradation", "degradation_cost_rainflow", "net_profit_incl_degradation",
+                "value_added", "value_added_spike", "value_added_non_spike", "max_grid_export_kw"]
+        print(f"\n==== Export limit study (household, J={n_segments}) ====")
+        print(summary[cols].round(2).to_string(index=False))
+        print(f"Written {path}")
+    return summary
+
+
 def replot(n_days=None, per_run_plots=False) -> None:
     """Redraw the study page (and KEEP_RUN_PLOTS, or every run with per_run_plots) from results/ without solving."""
     import glob
@@ -201,14 +247,19 @@ def main():
     ap.add_argument("--quiet", action="store_true")
     ap.add_argument("--plot-only", action="store_true", help="redraw the plots from results/ without solving")
     ap.add_argument("--per-run", action="store_true", help="also draw a page for every individual run (default: study page + household J=4)")
+    ap.add_argument("--export-limits", action="store_true", help="run only the grid export limit study (household, J=4)")
     args = ap.parse_args()
     n_days = 3 if args.quick else args.days
     if args.plot_only:
         replot(n_days, per_run_plots=args.per_run)
         return
+    if args.export_limits:
+        run_export_limit_study(n_days=n_days, solver_name=args.solver, verbose=not args.quiet)
+        return
     j_values = (1, 4) if args.quick else J_SWEEP
     run_experiment_matrix(j_values=j_values, n_days=n_days, solver_name=args.solver, plot=not args.no_plot, verbose=not args.quiet,
                           per_run_plots=args.per_run)
+    run_export_limit_study(n_days=n_days, solver_name=args.solver, verbose=not args.quiet)
 
 
 if __name__ == "__main__":

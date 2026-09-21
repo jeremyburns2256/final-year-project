@@ -118,17 +118,19 @@ def simulate_no_battery(df: pd.DataFrame, tariff) -> pd.DataFrame:
     The counterfactual as a results frame: same household, same month, no battery.
 
     The meter already reports the post-solar position, so this is just the meter
-    read straight through at the published rates.
+    read through at the published rates, netted within each interval as in
+    billing.no_battery_bill.
     """
     T = len(df)
     ts = df["SETTLEMENTDATE"]
+    net_local = df["EXPORT_KW"].to_numpy(dtype=float) - df["IMPORT_KW"].to_numpy(dtype=float)
     return _dispatch_frame(
         df,
         soc=np.zeros(T),
         charge=np.zeros(T),
         discharge=np.zeros(T),
-        grid_import=df["IMPORT_KW"].to_numpy(dtype=float),
-        grid_export=df["EXPORT_KW"].to_numpy(dtype=float),
+        grid_import=np.clip(-net_local, 0, None),
+        grid_export=np.clip(net_local, 0, None),
         p_imp=tariff.import_price(ts),
         p_exp=tariff.export_price(ts),
     )

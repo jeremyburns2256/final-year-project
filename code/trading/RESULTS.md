@@ -1,6 +1,13 @@
 # Results to date
 
-Written 2026-09-21. Every number is read from `results/*.csv`; nothing is re-run.
+Written 2026-09-21. Every number is read from `results/*.csv`.
+
+> **Stale after the 2026-09-21 audit.** The meter CSVs were re-stamped to interval end
+> (they were one 5-min interval late against the price series). Study 3 and the state
+> machine row, Study 1, the export-limit table and the −$91.80 reference are on the
+> corrected data. Study 2 (and the LSTM / naive rows in section 5) is still from the old
+> join, where the reference was −$91.31 and perfect foresight netted $28.74: re-run
+> `python forecast_trading.py` (about 1 hour), then refresh sections 3 and 5.
 Design decisions behind each study are in `milp/MODEL_NOTES.md`, `FORECAST_NOTES.md`
 and `retail/MODEL_NOTES.md`. All dollar figures are AUD for the 31 days of January
 2025 (JAN25, NSW1, 8928 five-minute intervals) unless stated otherwise.
@@ -10,8 +17,10 @@ and `retail/MODEL_NOTES.md`. All dollar figures are AUD for the 31 days of Janua
 - **Battery:** Powerwall 3, 13.5 kWh usable, 5 kW charge / 11.04 kW discharge,
   η_c = η_d = 0.943, E_0 = 6.75 kWh.
 - **Household:** one house, net meter data only (B1 export, E1 import), so the model
-  sees net local power G − A and never G and A separately. Without a battery the
-  house imports 458 kWh and exports 490 kWh over the month.
+  sees net local power G − A and never G and A separately. The meter registers both
+  channels in 636 intervals; they are netted per interval in every study, including
+  the no-battery references. On that basis the house imports 458 kWh and exports
+  490 kWh over the month without a battery (464 / 495 kWh on the raw channels).
 - **Spot settlement:** import at RRP + N (Ausgrid EA010, 10.80 c/kWh), export at RRP.
 - **Degradation:** Xu et al. (2018) J-segment cycle-aging cost inside the MILP;
   every run is also valued ex post by rainflow counting with Φ(δ) = 5.24e-4 δ^2.03
@@ -20,10 +29,10 @@ and `retail/MODEL_NOTES.md`. All dollar figures are AUD for the 31 days of Janua
   above 300 $/MWh in 0.45%, above 1000 $/MWh in **10 intervals** (1, 14, 15 and
   22 Jan; maximum 17 500 on 15 Jan).
 
-**No-battery reference on spot pricing.** The household alone pays $101.84 for
-imports and earns $10.53 for exports: a net position of **−$91.31** for the month.
+**No-battery reference on spot pricing.** The household alone pays $102.04 for
+imports and earns $10.24 for exports: a net position of **−$91.80** for the month.
 Household results below are the household's whole net position, so the value the
-battery adds is the result minus −$91.31.
+battery adds is the result minus −$91.80.
 
 ## 2. Study 1 — perfect-foresight MILP and the cost of cycling
 
@@ -33,13 +42,13 @@ Rolling horizon, 48 h solved / 24 h committed, 31 windows, HiGHS.
 
 | Model | Net profit ex. deg. | Rainflow deg. | **Net profit** | Life lost | Equiv. full cycles | Model-vs-rainflow error | Solve (s) |
 |---|---|---|---|---|---|---|---|
-| J = 1, R = 0 (degradation ignored) | 95.38 | 194.76 | **−99.38** | 1.62% | 42.3 | – | 15 |
-| J = 1 | 14.92 | 2.43 | 12.49 | 0.020% | 1.0 | 168% | 3 |
-| J = 2 | 43.97 | 22.58 | 21.40 | 0.188% | 8.0 | 15.6% | 7 |
-| **J = 4** | 43.84 | 15.10 | **28.74** | 0.126% | 9.3 | 4.2% | 13 |
-| J = 8 | 47.99 | 16.65 | 31.34 | 0.139% | 12.7 | 1.1% | 27 |
-| J = 16 | 49.01 | 16.62 | 32.39 | 0.139% | 15.0 | 4.1% | 63 |
-| State machine (68.22 / 127.20, 20 kWh lossless) | 54.88 | 135.82 | −80.95 | 1.13% | 25.5 | – | – |
+| J = 1, R = 0 (degradation ignored) | 95.04 | 194.62 | **−99.58** | 1.62% | 42.4 | – | 14 |
+| J = 1 | 14.40 | 2.40 | 12.00 | 0.020% | 1.0 | 170% | 3 |
+| J = 2 | 43.52 | 22.61 | 20.91 | 0.188% | 8.0 | 15.4% | 6 |
+| **J = 4** | 43.31 | 15.07 | **28.25** | 0.126% | 9.3 | 4.1% | 12 |
+| J = 8 | 47.69 | 16.86 | 30.83 | 0.141% | 12.7 | 0.9% | 27 |
+| J = 16 | 48.62 | 16.67 | 31.95 | 0.139% | 15.0 | 3.9% | 59 |
+| State machine (69.70 / 127.20, 20 kWh lossless) | 53.16 | 136.70 | −83.53 | 1.14% | 25.6 | – | – |
 
 ### Battery only (no household)
 
@@ -55,23 +64,25 @@ Rolling horizon, 48 h solved / 24 h committed, 31 windows, HiGHS.
 ### Findings
 
 1. **Ignoring degradation destroys the value of trading.** The R = 0 optimiser earns
-   the most at the meter ($95.38 household, $136.23 battery only) but cycles the
+   the most at the meter ($95.04 household, $136.23 battery only) but cycles the
    battery 42 and 25 times in a month, consuming 1.6% and 1.2% of its life. Valued
    by rainflow this is a net loss in both scenarios. The threshold state machine
-   fails the same way (−$80.95): it earns more at the meter than any
+   fails the same way (−$83.53): it earns more at the meter than any
    degradation-aware MILP and gives all of it back in aging.
 2. **A degradation-aware controller trades about a fifth as often and keeps the
    profit.** At J = 4 the household battery does 9.3 equivalent full cycles, loses
-   0.126% of life, and nets $28.74, i.e. **$120.05 of value added** over the
-   no-battery −$91.31 after $15.10 of aging.
+   0.126% of life, and nets $28.25, i.e. **$120.04 of value added** over the
+   no-battery −$91.80 after $15.07 of aging.
 3. **J = 4 is the working resolution.** A single segment prices all cycling at one
    marginal cost and barely trades (1 cycle). Net profit rises steeply to J = 4 and
-   then flattens (28.74 → 31.34 → 32.39 for a 2× and 5× longer solve). The MILP's
+   then flattens (28.25 → 30.83 → 31.95 for a 2× and 5× longer solve). The MILP's
    internal degradation cost agrees with rainflow to 4% at J = 4 in the household
-   case. The error is not monotone in J (1.1% at J = 8, 4.1% at J = 16), so beyond
-   J = 4 it is within the noise of a single month.
+   case. The error is not monotone in J (0.9% at J = 8, 3.9% at J = 16) and its sign
+   flips (the MILP overstates rainflow at J = 4 and 8, understates at 16), so below
+   about 5% it is no longer controlled by J. Cause not isolated: candidates are the
+   24 h commit of a 48 h window, the per-window terminal constraint, and the MIP gap.
 4. **Co-located solar and load add to the arbitrage value.** Value added before
-   aging is $135.16 with the household against $113.97 for the battery alone at
+   aging is $135.11 with the household against $113.97 for the battery alone at
    J = 4. This is consistent with the battery charging from surplus solar that would
    otherwise be exported at RRP, and discharging into load that would otherwise
    pay RRP + N, so it earns the network tariff as well as the price spread.
@@ -161,33 +172,49 @@ interval in which it was earned:
   household forecast (weather-driven solar, or simply using the latest meter
   reading for the current interval) is worth more than any further price-model work.
 
-## 4. Study 3 — retail self-consumption (AGL Residential Smart Saver, Ausgrid)
+## 4. Study 3 — retail plans (AGL Residential Smart Saver, Ausgrid)
 
-Same battery, no optimiser: charge from surplus solar, discharge into load, never
-trade with the grid. Feed-in 3 c/kWh. Aging valued ex post by rainflow.
+Same battery, feed-in 3 c/kWh, retail rates GST-inclusive. Two controllers:
 
-| Plan | Bill without | Bill with | Gross saving | Rainflow deg. | **Net saving** | Simple payback |
-|---|---|---|---|---|---|---|
-| Single rate (29.82 c/kWh, 149.57 c/day) | 169.77 | 110.36 | 59.41 | 64.04 | **−4.64** | never |
-| Time of use (54.18 / 21.63 c/kWh, 158.63 c/day) | 198.92 | 124.39 | 74.54 | 64.04 | **10.49** | 97 yr |
+- **Rule:** charge from surplus solar, discharge into load, never trade with the grid.
+  No aging signal; aging valued ex post by rainflow. Started from the SoC the same rule
+  reaches at the end of DEC24 (0 kWh), and it ends JAN25 at 0 kWh, so no free energy.
+- **Optimised:** the Chapter 2 MILP with the plan's import/export rates in place of
+  RRP + N and RRP, J = 4, perfect foresight of net local power, 48 h / 24 h rolling,
+  E_0 = E_T = 6.75 kWh. Same optimiser and aging cost as Study 1 on different prices,
+  so it is the like-for-like comparator for the perfect-foresight spot result. Binaries
+  relaxed (retail prices are never negative). Grid charging allowed.
 
-Dispatch is identical on both plans (the rule never looks at price): import falls
-464 → 240 kWh, export 495 → 252 kWh, 16.1 equivalent full cycles, 0.53% of life.
+Bill without battery (meter channels netted per interval, as the dispatch models do):
+$168.21 single rate, $196.53 time of use.
+
+| Plan | Controller | Bill with | Gross saving | Rainflow deg. | **Net saving** | Life lost | EFC |
+|---|---|---|---|---|---|---|---|
+| Single rate (29.82 c/kWh, 149.57 c/day) | rule | 112.27 | 55.94 | 63.36 | **−7.42** | 0.528% | 15.7 |
+| Single rate | optimised J = 4 | 138.01 | 30.20 | 12.38 | **17.82** | 0.103% | 8.5 |
+| Time of use (54.18 / 21.63 c/kWh, 158.63 c/day) | rule | 125.32 | 71.21 | 63.36 | **7.85** | 0.528% | 15.7 |
+| Time of use | optimised J = 4 | 134.93 | 61.61 | 25.47 | **36.14** | 0.212% | 11.1 |
+
+Rule dispatch is identical on both plans (it never looks at price): import falls
+458 → 246 kWh, export 490 → 252 kWh.
 
 ### Findings
 
 1. **The household is better off on the single-rate plan with or without the
-   battery** ($169.77 vs $198.92 without; $110.36 vs $124.39 with). Plan choice is
-   worth $29 a month; the battery's gross saving on the right plan is $59.
-2. **The battery is worth more on the plan the household should not be on**
-   ($74.54 vs $59.41 gross), because the imports it displaces are dearer there.
-3. **On the single-rate plan the battery does not cover its modelled aging**
-   ($59.41 gross vs $64.04). The supply charge is 27% of the bill and storage
-   cannot touch it; the battery earns only on the 26.82 c/kWh spread between the
-   usage rate and the feed-in tariff.
-4. **Self-consumption ages the battery four times faster than degradation-aware
-   spot trading** (0.53% vs 0.126% of life per month; 16.1 vs 9.3 equivalent full
-   cycles) because the rule has no aging signal and cycles on every surplus.
+   battery.** Plan choice is worth $28 a month without a battery; the rule's gross
+   saving on that plan is $56.
+2. **The battery is worth more on the time-of-use plan under either controller**,
+   because the imports it displaces are dearer there.
+3. **The rule's negative single-rate result is a controller property, not a tariff
+   property.** The optimised controller gives up $10–26 of gross saving, avoids
+   $38–51 of aging, and nets positive on both plans. The supply charge is 28% of the
+   single-rate bill and storage cannot touch it.
+4. **The rule ages the battery four times faster than degradation-aware spot
+   trading** (0.53% vs 0.126% of life per month) because it cycles on every surplus.
+
+Corrections made 2026-09-21 (audit): the no-battery bill previously used the raw E1/B1
+channels while the battery bill was netted (a $1.6 artefact), and the rule started at
+6.75 kWh and ended at 0 (about $2–3 of free energy). Both are fixed above.
 
 ## 5. Across the three operating models
 
@@ -195,24 +222,41 @@ Value added by the battery over the same household with no battery, January 2025
 
 | Operating model | Gross value added | Rainflow deg. | **Net value added** |
 |---|---|---|---|
-| Spot, perfect foresight, J = 4 | 135.16 | 15.11 | **120.05** |
+| Spot, perfect foresight, J = 4 | 135.11 | 15.07 | **120.04** |
 | Spot, LSTM-driven MPC | 124.60 | 17.35 | **107.25** |
 | Spot, naive-driven MPC | 123.01 | 15.79 | **107.23** |
-| Spot, degradation ignored (J = 1, R = 0) | 186.69 | 194.76 | **−8.07** |
-| Retail time of use, self-consumption | 74.54 | 64.04 | **10.49** |
-| Retail single rate, self-consumption | 59.41 | 64.04 | **−4.64** |
+| Spot, perfect foresight, 5 kW export limit | 81.17 | 14.37 | **66.80** |
+| Spot, degradation ignored (J = 1, R = 0) | 186.84 | 194.62 | **−7.78** |
+| Retail time of use, optimised, perfect foresight | 61.61 | 25.47 | **36.14** |
+| Retail single rate, optimised, perfect foresight | 30.20 | 12.38 | **17.82** |
+| Retail time of use, rule | 71.21 | 63.36 | **7.85** |
+| Retail single rate, rule | 55.94 | 63.36 | **−7.42** |
 
-On this month, a forecast-driven, degradation-aware controller on spot prices is
-worth about $107 to the household against roughly zero for self-consumption on a
-retail plan, and it achieves that with a quarter of the battery wear. About $100 of
-that is the ten spike intervals. Take those out and the two are roughly level: the
-LSTM-driven controller adds $23.07 gross and $5.72 after aging, against −$4.64 and
-$10.49 on the retail plans. The case for spot exposure on this month is the spikes.
+Compare like for like: perfect-foresight spot ($120.04) against optimised retail
+($36.14 / $17.82), and forecast-driven spot (about $107) against the rule
+($7.85 / −$7.42). Comparing the degradation-aware spot controller with the
+degradation-blind rule credits the tariff with a wear difference that belongs to the
+controller. About $100 of the spot advantage is the ten spike intervals. Without them
+perfect-foresight spot adds $33.56 gross and $18.49 net, level with optimised single
+rate and half of optimised time of use; LSTM-driven spot adds $23.07 gross, $5.72 net.
+The case for spot exposure on this month is the spikes, plus a grid connection that
+lets the battery export at full power during them.
+
+**Export limit (perfect foresight, household, J = 4; `milp_trading.py --export-limits`):**
+
+| Export limit | Profit at meter | Rainflow deg. | Net profit | Value added | of which RRP > 1000 |
+|---|---|---|---|---|---|
+| none | 43.31 | 15.07 | 28.25 | 135.11 | 101.55 |
+| 10 kW | 35.16 | 15.01 | 20.14 | 126.95 | 93.65 |
+| 5 kW | −10.63 | 14.37 | −25.00 | 81.17 | 49.00 |
+
+Unlimited runs export up to 14 kW in the spikes. No solar curtailment is modelled, so
+under a limit the battery must keep headroom for surplus above it.
 
 ## 6. Limits on what can be claimed
 
 - **One month, one house, one region.** January is the month with the most solar and
-  contained two market-cap days. Spot results should not be annualised: 75% of the
+  contained one market-cap day (15 Jan) and one above 15 000 $/MWh (22 Jan). Spot results should not be annualised: 75% of the
   value is ten intervals. The retail annualisation in `retail_summary.csv` is an
   upper bound for the same reason.
 - **Degradation inputs are placeholders.** R_cell = 12 000 AUD needs a cited
@@ -225,7 +269,13 @@ $10.49 on the retail plans. The case for spot exposure on this month is the spik
   bills include a $46–49 supply charge. "Value added by the battery" is comparable
   across the two because each is measured against its own no-battery case; the
   absolute bills are not.
-- **No grid import or export limit**, fixed efficiencies, no calendar aging, and
+- **The spot side is ex-GST and omits environmental, market and loss-factor costs**;
+  retail rates include GST. No-battery energy cost is $91 on spot against $122 on the
+  single-rate plan before supply. Confirm EA010 10.8007 c/kWh is ex-GST.
+- **Step-0 price is taken as known for the whole interval.** A 30–60 s lag forgoes
+  10–20% of a spike interval's energy.
+- **No grid import or export limit outside the export-limit table**, solar does not
+  share the battery's 11.04 kW inverter, no curtailment, fixed efficiencies, no calendar aging, and
   the state machine baseline runs on its own 20 kWh lossless battery, so it is a
   qualitative comparison only.
 - **The test month was touched once per forecaster.** LSTM hyperparameters were
@@ -240,13 +290,17 @@ $10.49 on the retail plans. The case for spot exposure on this month is the spik
    studies; the retail conclusion may change sign.
 4. Extend beyond JAN25 (at least one winter month) before making any annual or
    payback claim for spot trading.
-5. Decide whether a spike model is still a Part B candidate given Study 2 finding 4: its
+5. Re-run the MPC study under 5 and 10 kW export limits, with solar curtailment in the
+   model.
+6. Put GST, environmental/market charges and loss factors on the spot side.
+7. Decide whether a spike model is still a Part B candidate given Study 2 finding 4: its
    value would be in guaranteeing charge is held, not in closing the measured gap.
 
 ## Source files
 
-`results/milp_summary.csv`, `results/forecast_summary.csv`, `results/retail_summary.csv`,
+`results/milp_summary.csv`, `results/milp_export_limit.csv`, `results/forecast_summary.csv`, `results/retail_summary.csv`,
 `results/mpc_household_J4_<forecaster>.csv` (price-band table and no-battery reference
 are computed from these), `results/train_price_lstm.log`. Plots:
 `plots/milp_j_sweep.html`, `plots/milp_household_J4_R12000.html`,
-`plots/forecast_study.html`, `plots/retail_flat_E13.5.html`, `plots/retail_tou_E13.5.html`.
+`plots/forecast_study.html`, `plots/retail_flat_E13.5.html`, `plots/retail_tou_E13.5.html`,
+`plots/retail_flat_milp_E13.5.html`, `plots/retail_tou_milp_E13.5.html`.
