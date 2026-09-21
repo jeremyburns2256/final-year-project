@@ -9,6 +9,16 @@ Objective (Eq. 2.5), minimise over the window:
 Every constraint below is annotated with its thesis equation number.
 The household enters only through net local power  G_t - A_t  (kW), which is
 export_kw - import_kw from the meter; the model never needs A_t and G_t separately.
+
+Price signal
+------------
+The objective above is the spot-market case: imports at R_t + N, exports at R_t.
+The same dispatch problem also describes a household on a standard retail offer,
+where the two directions are priced independently and neither is R_t. The window
+builder therefore accepts explicit per-interval import and export prices
+(import_price_kwh / export_price_kwh, both $/kWh); when they are omitted it falls
+back to R_t/1000 + N and R_t/1000, reproducing the spot model exactly. See
+retail/tariffs.py for the set-rate residential tariffs.
 """
 
 from __future__ import annotations
@@ -42,6 +52,7 @@ class BatteryParams:
     network_tariff: float = 0.108007  # $/kWh on imports, Ausgrid EA010
     export_limit_kw: float | None = None  # not applied when None (no grid limits agreed)
     import_limit_kw: float | None = None
+    allow_grid_charging: bool = True  # False restricts charging to the household's own surplus
 
     @property
     def segment_capacity(self) -> float:
@@ -105,6 +116,9 @@ def build_and_solve_window(
     e_terminal_min: float,
     solver=None,
     dt: float = INTERVAL_HOURS,
+    import_price_kwh: np.ndarray | None = None,
+    export_price_kwh: np.ndarray | None = None,
+    relax_binaries: bool = False,
 ) -> WindowResult:
     """
     Build and solve the thesis MILP over one window of T intervals.
@@ -113,13 +127,32 @@ def build_and_solve_window(
     net_local_kw     : G_t - A_t per interval (positive = household surplus)
     e_start_segments : E_{0,j} carried in from the previous window, Eq. 2.6j
     e_terminal_min   : lower bound on sum_j E_{T,j} at the window end, Eq. 2.6k
+    import_price_kwh : p^i_t in $/kWh. Defaults to R_t/1000 + N (the spot case).
+    export_price_kwh : p^e_t in $/kWh. Defaults to R_t/1000.
+    relax_binaries   : drop the integrality of u^c, u^d (Eq. 2.6g becomes
+                       P^c/P^c_max + P^d/P^d_max <= 1). Only valid when no price
+                       is negative -- see the note at the relaxation below.
     """
     T = len(rrp)
     J = params.n_segments
     c = params.segment_costs
     price_kwh = np.asarray(rrp, dtype=float) / 1000.0  # $/MWh -> $/kWh
     N = params.network_tariff
+    p_import = price_kwh + N if import_price_kwh is None else np.asarray(import_price_kwh, dtype=float)
+    p_export = price_kwh if export_price_kwh is None else np.asarray(export_price_kwh, dtype=float)
+    if len(p_import) != T or len(p_export) != T:
+        raise ValueError("import/export price arrays must match the window length")
     solver = solver or make_solver()
+
+    # The binaries exist only to stop the optimiser charging and discharging in the
+    # same interval. Shrinking a simultaneous pair while holding the SoC path fixed
+    # changes grid position by P^d dt (1 - 1/(eta_c eta_d)) < 0, i.e. it imports
+    # strictly less or exports strictly more, and cuts the aging term as well. That
+    # is an improvement whenever both prices are non-negative, so on any retail
+    # tariff the LP relaxation is exact. Spot prices go negative in the NEM, where
+    # it is not, hence the guard rather than a blanket relaxation.
+    if relax_binaries and (p_import.min() < 0 or p_export.min() < 0):
+        raise ValueError("relax_binaries requires non-negative import and export prices")
 
     prob = pulp.LpProblem("household_bess_dispatch", pulp.LpMinimize)
 
@@ -130,13 +163,14 @@ def build_and_solve_window(
     E = pulp.LpVariable.dicts("E", (t_idx, j_idx), lowBound=0, upBound=params.segment_capacity)  # Eq. 2.6h
     Di = pulp.LpVariable.dicts("Di", t_idx, lowBound=0, upBound=params.import_limit_kw)   # D^i_t
     De = pulp.LpVariable.dicts("De", t_idx, lowBound=0, upBound=params.export_limit_kw)   # D^e_t
-    uc = pulp.LpVariable.dicts("uc", t_idx, cat=pulp.LpBinary)             # Eq. 2.6g
-    ud = pulp.LpVariable.dicts("ud", t_idx, cat=pulp.LpBinary)
+    cat = pulp.LpContinuous if relax_binaries else pulp.LpBinary          # Eq. 2.6g
+    uc = pulp.LpVariable.dicts("uc", t_idx, lowBound=0, upBound=1, cat=cat)
+    ud = pulp.LpVariable.dicts("ud", t_idx, lowBound=0, upBound=1, cat=cat)
 
     # Objective, Eq. 2.5
     prob += pulp.lpSum(
-        Di[t] * (N + price_kwh[t]) * dt
-        - De[t] * price_kwh[t] * dt
+        Di[t] * p_import[t] * dt
+        - De[t] * p_export[t] * dt
         + pulp.lpSum(c[j] * Pd[t][j] * dt for j in j_idx)
         for t in t_idx
     )
@@ -146,6 +180,12 @@ def build_and_solve_window(
         pd_t = pulp.lpSum(Pd[t][j] for j in j_idx)  # Eq. 2.6c
 
         prob += pc_t <= uc[t] * params.p_max_charge, f"charge_limit_{t}"       # Eq. 2.6d
+        if not params.allow_grid_charging:
+            # Charge from the household's own surplus only: D^i_t can then never
+            # be raised to fill the battery. Relevant on a flat retail tariff,
+            # where grid charging is value-destroying anyway, and for batteries
+            # whose rebate or VPP terms forbid it.
+            prob += pc_t <= max(0.0, float(net_local_kw[t])), f"solar_only_charge_{t}"
         prob += pd_t <= ud[t] * params.p_max_discharge, f"discharge_limit_{t}" # Eq. 2.6e
         prob += uc[t] + ud[t] <= 1, f"mode_{t}"                                # Eq. 2.6f
 
