@@ -27,10 +27,11 @@ the bill smaller. Given a flat rate, no export limit and no aging cost, the gree
 rule is not a heuristic but **optimal**: charging as early as possible maximises
 stored energy at every instant, and with a single import rate all deficits are
 equally worth serving, so there is nothing to save charge for. A perfect-foresight
-optimiser has no advantage to exploit. (`milp/model.py` will accept retail price
-arrays via `import_price_kwh` / `export_price_kwh` if that claim ever needs
-checking against the MILP; it also gains `relax_binaries`, exact whenever both
-prices are non-negative, and `allow_grid_charging`.)
+optimiser has no advantage to exploit *before aging*. Once cycles are priced it does:
+`retail_trading.py` also runs the Chapter 2 MILP on the tariff's rates
+(`--controller milp`; `import_price_kwh` / `export_price_kwh` and `relax_binaries`,
+exact whenever both prices are non-negative), and that is the like-for-like
+comparator for the perfect-foresight spot study.
 
 ## Scoring
 
@@ -41,53 +42,55 @@ saving = bill(no battery) − bill(with battery) − rainflow aging cost
 ```
 
 Both bills use the same meter data and the same published rates. The no-battery
-bill needs no model at all — the meter already reports the post-solar position, so
-it is the meter read straight through. The daily supply charge appears in both and
+bill needs no model at all — the meter already reports the post-solar position. Its
+import and export channels are netted within each 5-min interval, because the dispatch
+models see only the net and net their own grid position the same way (billing the raw
+channels credited the battery with $1.6 it did not earn). The rule has no terminal
+constraint, so it starts from the SoC the same rule reaches at the end of DEC24
+(0 kWh; it also ends JAN25 at 0), not from the MILP's 6.75 kWh. The daily supply charge appears in both and
 cancels out of the saving; it is reported because it sets the floor a battery
 cannot touch. Aging is charged ex post by rainflow, because the controller has no
 price signal to weigh a cycle against.
 
 ## Results on JAN25 (13.5 kWh, AGL Residential Smart Saver, FiT 3 c/kWh)
 
-| Plan | Bill without | Bill with | Gross saving | Degradation | Net | Payback |
+Re-run 2026-09-21 after the audit fixes listed under "Scoring". No-battery bill:
+$168.21 single rate, $196.53 time of use.
+
+| Plan | Controller | Bill with | Gross saving | Degradation | Net | Life lost |
 |---|---|---|---|---|---|---|
-| single rate | $169.77 | $110.36 | $59.41 | $64.04 | **−$4.64** | never |
-| time of use | $198.92 | $124.39 | $74.54 | $64.04 | $10.49 | 97 yr |
+| single rate | rule | $112.27 | $55.94 | $63.36 | **−$7.42** | 0.528% |
+| single rate | MILP J = 4 | $138.01 | $30.20 | $12.38 | **$17.82** | 0.103% |
+| time of use | rule | $125.32 | $71.21 | $63.36 | $7.85 | 0.528% |
+| time of use | MILP J = 4 | $134.93 | $61.61 | $25.47 | **$36.14** | 0.212% |
 
-Grid import falls 464 → 240 kWh and export 495 → 252 kWh on both: the dispatch is
-identical, because the rule never looks at price. Only the valuation changes.
+Rule: grid import falls 458 → 246 kWh and export 490 → 252 kWh on both plans; the
+dispatch is identical, because the rule never looks at price. Only the valuation changes.
 
-**Three things worth stating separately.**
+**Four things worth stating separately.**
 
 *1. This household should stay on the single-rate plan, with or without a battery.*
-Its bill is lower on single rate both ways ($169.77 vs $198.92 without, $110.36 vs
-$124.39 with). The ToU plan prices 198 kWh of its evening import at 54.18 c/kWh, and
-the cheaper off-peak rate does not make that back. So the plan choice is worth more
-than the battery here — $29 a month against $59 — which is a result in itself.
+The ToU plan prices 194 kWh of its evening import at 54.18 c/kWh, and the cheaper
+off-peak rate does not make that back. Plan choice is worth $28 a month without a
+battery, against $56 gross for the rule.
 
-*2. The battery is worth more on the plan the household should not be on.* The gross
-saving is larger on ToU ($74.54 vs $59.41) precisely because the imports it displaces
-are dearer there. That is not a contradiction, it is the distinction between the level
-of a bill and the value of shaving its peak, and the two point opposite ways here.
+*2. The battery is worth more on the plan the household should not be on*, under
+either controller, because the imports it displaces are dearer there.
 
-*3. On the plan it should actually be on, the battery does not pay for itself.*
-$59.41/month gross against $64.04/month of modelled aging. Two causes, which should
-not be conflated:
+*3. The rule does not pay for its modelled aging on single rate, but that is the
+controller, not the tariff.* The MILP with the same aging cost the spot study uses
+cycles about half as much, gives up $10–26 of gross saving, avoids $38–51 of aging and
+nets positive on both plans. The rule is optimal only *before* aging. Any spot-vs-retail
+comparison must therefore pair the spot MILP with the retail MILP (both perfect
+foresight) and the forecast-driven spot MPC with the rule (both realisable).
 
-  - *The plan shape is hostile to storage.* Smart Saver single rate pairs a low usage
-    rate (29.82 c/kWh) with a high supply charge (149.57 c/day). A battery only ever
-    attacks the usage charge, and earns on the spread (29.82 − 3.0) = 26.82 c/kWh.
-    The supply charge is $46.37 of the $169.77 bill — 27% — and storage cannot touch
-    a cent of it.
-  - *The degradation cost is placeholder-driven and probably overstated.* It rests on
-    `R_cell = 12 000 AUD`, still needing a cited installed-cost figure, and the Xu NMC
-    stress function `Φ(δ) = 5.24e-4 δ^2.03`, which overstates the penalty for the
-    Powerwall 3's LFP chemistry. Both are flagged in `milp/MODEL_NOTES.md`.
-
-The sign of the net saving is therefore not yet defensible. The gross saving is the
-robust number, and even on gross alone the payback against $12 000 is ~17 years on
-single rate. The honest statement: this battery is marginal-to-uneconomic on this
-plan, and fixing the two degradation inputs decides which side of the line it lands.
+*4. The degradation cost is placeholder-driven and probably overstated.* It rests on
+`R_cell = 12 000 AUD`, still needing a cited installed-cost figure, and the Xu NMC
+stress function, which overstates the penalty for LFP. A full-depth cycle costs
+12 000 × 5.24e-4 = $6.29 for 12.7 kWh delivered, 49.5 c/kWh, which is above the
+26.82 c/kWh single-rate spread, so under these inputs no deep-cycling self-consumption
+battery can pay. The supply charge is $46.37 of the $168.21 bill (28%) and storage
+cannot touch it.
 
 ## Rates
 

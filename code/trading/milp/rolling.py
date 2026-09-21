@@ -30,6 +30,9 @@ def simulate_milp(
     solver_time_limit: float | None = 120.0,
     verbose: bool = True,
     r_cell_valuation: float | None = None,
+    import_price_kwh: np.ndarray | None = None,
+    export_price_kwh: np.ndarray | None = None,
+    relax_binaries: bool = False,
 ) -> tuple[pd.DataFrame, dict]:
     """
     Run the rolling MILP over a full price DataFrame.
@@ -42,12 +45,19 @@ def simulate_milp(
     in the metrics (defaults to params.r_cell). Pass the real R_cell so that runs
     optimised with a different (e.g. zero) aging cost are still charged for the
     life they actually consumed.
+
+    import_price_kwh / export_price_kwh: per-interval $/kWh prices for the whole
+    DataFrame, for a household on a retail tariff (see milp/model.py). When given
+    they replace R_t/1000 + N and R_t/1000 in both the optimisation and the
+    settlement; relax_binaries may then be set, since retail prices are never negative.
     """
     rrp = price_df["RRP"].to_numpy(dtype=float)
     times = price_df["SETTLEMENTDATE"].to_numpy()
     export_kw = price_df[export_col].to_numpy(dtype=float) if export_col else np.zeros(len(rrp))
     import_kw = price_df[import_col].to_numpy(dtype=float) if import_col else np.zeros(len(rrp))
     net_local = export_kw - import_kw  # G_t - A_t
+    p_imp = rrp / 1000 + params.network_tariff if import_price_kwh is None else np.asarray(import_price_kwh, dtype=float)
+    p_exp = rrp / 1000 if export_price_kwh is None else np.asarray(export_price_kwh, dtype=float)
 
     T = len(rrp)
     win = int(round(window_hours / INTERVAL_HOURS))
@@ -69,7 +79,8 @@ def simulate_milp(
         end = min(start + win, T)
         commit_end = min(start + step, T)
         res = build_and_solve_window(
-            rrp[start:end], net_local[start:end], params, seg_state, e_terminal, solver=solver
+            rrp[start:end], net_local[start:end], params, seg_state, e_terminal, solver=solver,
+            import_price_kwh=p_imp[start:end], export_price_kwh=p_exp[start:end], relax_binaries=relax_binaries,
         )
         n = commit_end - start
         charge[start:commit_end] = res.charge_kw[:n]
@@ -88,8 +99,8 @@ def simulate_milp(
             )
 
     dt = INTERVAL_HOURS
-    cost = grid_import * dt * (rrp / 1000 + params.network_tariff)
-    revenue = grid_export * dt * rrp / 1000
+    cost = grid_import * dt * p_imp
+    revenue = grid_export * dt * p_exp
 
     results = pd.DataFrame(
         {
