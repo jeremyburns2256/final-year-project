@@ -175,3 +175,29 @@ Existing perfect-foresight `simulate_milp` is untouched. requirements: add
 - `python forecast_trading.py --plot-only [--per-run]` redraws from results/
   without solving; `python milp_trading.py --plot-only [--per-run]` does the same
   for the degradation study (`plots/milp_j_sweep.html`).
+
+## Noise sensitivity (2026-09-29)
+
+Decisions from the 2026-09-29 grilling session. Question: how much dispatch value
+survives as forecasts get worse, as a curve rather than the four real forecasters?
+
+- **Inputs.** Price and net-local, one at a time, the other held perfect (mirrors
+  the perfect / perfect_price decomposition). No joint grid.
+- **Noise model** (`forecasting/noisy.py`, `NoisyForecaster`). Perfect foresight plus
+  a smooth error path: AR(1) along the horizon, rho = 0.95 per 5-min step, standard
+  deviation growing as sigma_max * sqrt((h+1)/288), i.e. sigma_max at 24 h ahead.
+  Price noise is added in asinh(R/100) space (the LSTM's target transform: roughly
+  additive near $0, multiplicative on spikes, negative prices fine); net-local noise
+  is additive in kW. Redrawn at every issue time, seeded on (seed, t).
+- **Rejected:** i.i.d. additive $/MWh noise (the MILP trades on fake 5-min
+  arbitrage) and a separate spike-miss / timing-jitter sweep (kept simple; the
+  asinh noise distorts spike size but never timing, and the step-0 actual price
+  already reveals every spike, see the 2026-09-21 correction above).
+- **Levels.** Price sigma_max in {0.25, 0.5, 1, 2} gives realised MAE of about
+  20 / 41 / 96 / 389 $/MWh (real forecasters 45-162). Net-local sigma_max in
+  {0.5, 1, 2, 3} kW gives MAE 0.27 / 0.53 / 1.06 / 1.60 kW (7-day profile 1.15).
+  One seed per level: 8928 independent draws per run already average the noise.
+- **Configuration** as the main study: household, J = 4, R_cell = 12 000, 24 h / 5-min
+  MPC, step-0 actual price. The perfect-foresight run is re-solved as sigma = 0.
+- Run: `python forecast_trading.py --noise-study` (9 runs in parallel, ~40 min).
+  Output: `results/forecast_noise_summary.csv`, `results/mpc_household_J4_noise_*.csv/.json`.

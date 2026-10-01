@@ -8,6 +8,8 @@ Written 2026-09-21. Every number is read from `results/*.csv`.
 > corrected data. Study 2 (and the LSTM / naive rows in section 5) is still from the old
 > join, where the reference was −$91.31 and perfect foresight netted $28.74: re-run
 > `python forecast_trading.py` (about 1 hour), then refresh sections 3 and 5.
+> The noise sensitivity study (section 3, 2026-09-30) is on the corrected data; its
+> comparison with the real forecasters uses the stale Study 2 rows.
 Design decisions behind each study are in `milp/MODEL_NOTES.md`, `FORECAST_NOTES.md`
 and `retail/MODEL_NOTES.md`. All dollar figures are AUD for the 31 days of January
 2025 (JAN25, NSW1, 8928 five-minute intervals) unless stated otherwise.
@@ -172,6 +174,56 @@ interval in which it was earned:
   household forecast (weather-driven solar, or simply using the latest meter
   reading for the current interval) is worth more than any further price-model work.
 
+### Noise sensitivity (2026-09-30)
+
+Perfect foresight plus synthetic error on one input at a time, the other kept perfect
+(`forecasting/noisy.py`, `python forecast_trading.py --noise-study`, 61 min for 9 runs;
+design in FORECAST_NOTES "Noise sensitivity"). The error is AR(1) along the horizon
+(rho = 0.95 per 5 min), grows as sqrt(lead) to sigma_max at 24 h, is redrawn every
+re-plan, and is added to asinh(R/100) for price or to G − A in kW. One seed per level.
+Page: `plots/forecast_noise_study.html`; report Table 5.8 / Fig. 5.9.
+
+| Input | sigma_max | MAE | Profit at meter | Rainflow deg. | **Net profit** | Value lost | EFC |
+|---|---|---|---|---|---|---|---|
+| none (perfect) | – | – | 43.31 | 15.07 | **28.24** | – | 9.3 |
+| price | 0.25 | 19.8 $/MWh | 43.68 | 15.58 | **28.10** | 0.14 | 9.6 |
+| price | 0.5 | 41.1 $/MWh | 44.67 | 16.92 | **27.75** | 0.49 | 10.4 |
+| price | 1 | 95.9 $/MWh | 45.16 | 20.77 | **24.38** | 3.86 | 12.7 |
+| price | 2 | 388.3 $/MWh | 34.29 | 33.80 | **0.50** | 27.74 | 23.1 |
+| net-local | 0.5 kW | 0.27 kW | 43.11 | 15.20 | **27.92** | 0.32 | 9.4 |
+| net-local | 1 kW | 0.53 kW | 42.88 | 15.23 | **27.64** | 0.60 | 9.5 |
+| net-local | 2 kW | 1.06 kW | 42.37 | 15.33 | **27.04** | 1.20 | 9.6 |
+| net-local | 3 kW | 1.60 kW | 42.01 | 15.42 | **26.58** | 1.66 | 9.7 |
+
+1. **Perfect foresight on corrected data: $28.24** on the MPC loop, against $28.25 for
+   the 48 h rolling solve in Study 1, so Study 2 finding 1 still holds.
+2. **Unbiased error is cheap until it is large.** Price MAE of 41 $/MWh (LSTM-sized)
+   costs $0.49; 96 $/MWh costs $3.86; only at 388 $/MWh is the value gone. Load error
+   costs about $1 per kW of MAE.
+3. **Price error costs through cycling, not worse trades.** Up to sigma_max = 1, profit
+   at the meter *rises* ($43.31 → $45.16) while cycling goes from 9.3 to 12.7 EFC and
+   degradation rises by $5.70. The aging term restrains trading but cannot tell a real
+   spread from a forecast one.
+4. **The real forecasters lose far more than their MAE predicts** (interpolated on the
+   curve, against the old-join Study 2 numbers):
+
+   | Forecast | MAE | Random error of that MAE costs | Actually costs |
+   |---|---|---|---|
+   | 7-day load profile | 1.15 kW | $1.28 | $9.10 (perfect − perfect price) |
+   | LSTM price | 44.6 $/MWh | $0.71 | $3.70 (perfect price − LSTM) |
+   | Seasonal naive price | 61.3 $/MWh | $1.74 | $3.72 |
+   | AEMO price | 161.6 $/MWh | $9.23 | $4.97 |
+
+   Error structure, not size, drives the loss: real errors depend on the day (a
+   profile on a cloudy day, a forecast that flattens the daily shape) and move the whole
+   schedule, while the synthetic error averages out. Which features matter is not
+   isolated. AEMO sits *below* the curve because its MAE is mostly false cap-price
+   spikes, which the observed step-0 price corrects. MAE misleads in both directions,
+   consistent with finding 6.
+5. **Implication for the net-local forecast** (open item 2): compare candidate household
+   forecasts by dispatch value, not MAE; a lower-MAE forecast with the same day-level
+   bias may recover little of the $9.10.
+
 ## 4. Study 3 — retail plans (AGL Residential Smart Saver, Ausgrid)
 
 Same battery, feed-in 3 c/kWh, retail rates GST-inclusive. Two controllers:
@@ -285,7 +337,8 @@ under a limit the battery must keep headroom for surplus above it.
 
 1. Run the MPC study with `step0_actual_price=False` to price the current-interval
    assumption.
-2. Improve the net-local forecast; it is the largest recoverable loss ($9.10).
+2. Improve the net-local forecast; it is the largest recoverable loss ($9.10). The
+   noise study shows MAE does not predict that loss, so judge candidates by dispatch value.
 3. Replace the placeholder R_cell and the NMC stress function, then re-run all three
    studies; the retail conclusion may change sign.
 4. Extend beyond JAN25 (at least one winter month) before making any annual or
@@ -298,9 +351,9 @@ under a limit the battery must keep headroom for surplus above it.
 
 ## Source files
 
-`results/milp_summary.csv`, `results/milp_export_limit.csv`, `results/forecast_summary.csv`, `results/retail_summary.csv`,
+`results/milp_summary.csv`, `results/milp_export_limit.csv`, `results/forecast_summary.csv`, `results/forecast_noise_summary.csv`, `results/retail_summary.csv`,
 `results/mpc_household_J4_<forecaster>.csv` (price-band table and no-battery reference
 are computed from these), `results/train_price_lstm.log`. Plots:
 `plots/milp_j_sweep.html`, `plots/milp_household_J4_R12000.html`,
-`plots/forecast_study.html`, `plots/retail_flat_E13.5.html`, `plots/retail_tou_E13.5.html`,
+`plots/forecast_study.html`, `plots/forecast_noise_study.html`, `plots/retail_flat_E13.5.html`, `plots/retail_tou_E13.5.html`,
 `plots/retail_flat_milp_E13.5.html`, `plots/retail_tou_milp_E13.5.html`.
