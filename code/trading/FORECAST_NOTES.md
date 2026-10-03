@@ -240,6 +240,11 @@ survives as forecasts get worse, as a curve rather than the four real forecaster
   | 7-day profile | 1.154 | 1.768 | 0.103 | 1.170 | 1.134 |
   | LSTM | 1.047 | 1.544 | 0.002 | 0.929 | 1.064 |
 
-- **Not yet run:** the MPC with `lstm_load`. Dispatch value is unknown.
+- **Dispatch value (2026-10-03, JAN25, J = 4, R_cell = 12 000, actual price):** `lstm_load` earns
+  20.17 against 19.09 for `perfect_price` (7-day profile) and 28.24 for perfect. The 9% lower
+  MAE recovers 1.08 of the 9.15 lost to the load forecast (12%); 8.07 remains. Revenue before
+  degradation rises 33.76 -> 33.96 and rainflow degradation falls 14.68 -> 13.79, so most of
+  the gain is less cycling, not more revenue. One seed, one month.
   `python forecast_trading.py --forecasters perfect perfect_price naive aemo lstm naive_perfect_net aemo_perfect_net lstm_perfect_net lstm_load --reuse --no-plot`
-  (`--reuse` solves only `lstm_load`; listing the others keeps them in `results/forecast_summary.csv`).
+  (`--reuse` solves only what has no saved result, 29 min for `lstm_load`).
+- **Plot:** `python -m plotting.load_forecast_plot` writes `plots/load_forecast.html`.
