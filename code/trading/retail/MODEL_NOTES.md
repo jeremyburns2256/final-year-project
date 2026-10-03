@@ -54,6 +54,11 @@ price signal to weigh a cycle against.
 
 ## Results on JAN25 (13.5 kWh, AGL Residential Smart Saver, FiT 3 c/kWh)
 
+> **Stale after the 2026-10-03 battery change** (generic Xu battery: 15% to 95% SoC
+> window, η = 0.95, R_cell = 10 800 AUD; see `milp/MODEL_NOTES.md`). The numbers in this
+> section and the next are from the Powerwall 3 parameters with R_cell = 12 000.
+> Refresh with `python retail_trading.py`.
+
 Re-run 2026-09-21 after the audit fixes listed under "Scoring". No-battery bill:
 $168.21 single rate, $196.53 time of use.
 

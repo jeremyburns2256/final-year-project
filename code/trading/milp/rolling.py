@@ -140,7 +140,7 @@ def summarise(results: pd.DataFrame, params: BatteryParams, r_cell_valuation: fl
     """
     r_val = params.r_cell if r_cell_valuation is None else r_cell_valuation
     soc_path = np.concatenate([[params.e_initial], results["battery_state"].to_numpy()])
-    rf = rainflow_aging_cost(soc_path, params.e_max, r_val, params.phi_a, params.phi_k)
+    rf = rainflow_aging_cost(soc_path, params.e_rated, r_val, params.phi_a, params.phi_k)
     model_deg = float(results["degradation_cost"].sum()) if "degradation_cost" in results else float("nan")
     # Validate the piecewise-linear approximation at the R the optimiser actually used.
     rainflow_at_model_r = params.r_cell * rf["life_loss_fraction"]
@@ -160,7 +160,7 @@ def summarise(results: pd.DataFrame, params: BatteryParams, r_cell_valuation: fl
         "mean_cycle_depth": rf["mean_cycle_depth"],
         "max_cycle_depth": rf["max_cycle_depth"],
         "discharged_kwh": discharged,
-        "equivalent_full_cycles": discharged / params.e_max if discharged == discharged else float("nan"),
+        "equivalent_full_cycles": discharged / params.e_rated if discharged == discharged else float("nan"),
         "final_soc_kwh": float(results["battery_state"].iloc[-1]),
     }
 

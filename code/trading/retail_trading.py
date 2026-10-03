@@ -31,7 +31,7 @@ import numpy as np
 import pandas as pd
 
 from milp.degradation import rainflow_aging_cost
-from milp.model import INTERVAL_HOURS, BatteryParams
+from milp.model import E_RATED, INTERVAL_HOURS, R_CELL_PER_KWH, BatteryParams
 from milp.rolling import simulate_milp
 from plotting.battery_plot import plot_battery_trading
 from retail.billing import period_breakdown, retail_metrics
@@ -47,7 +47,7 @@ TEST_EXPORT_CSV = "data/export_JAN25.csv"
 TEST_IMPORT_CSV = "data/import_JAN25.csv"
 RESULTS_DIR = "results"
 PLOTS_DIR = "plots"
-R_CELL = 12_000.0  # AUD, placeholder replacement cost for a 13.5 kWh Powerwall 3 (see milp/MODEL_NOTES.md)
+R_CELL = R_CELL_PER_KWH * E_RATED  # AUD, 800 AUD/kWh installed x 13.5 kWh (see milp/MODEL_NOTES.md)
 N_SEGMENTS = 4     # J for the optimised controller, as in the forecasting study
 CONTROLLERS = ("rule", "milp")
 
@@ -65,9 +65,9 @@ def rule_initial_soc(params: BatteryParams, tariff) -> float:
     """
     SoC the self-consumption rule is holding at the start of the test month: the end
     state of the same rule run over the history month. The rule has no terminal
-    constraint, so starting it at the MILP's 50% would hand it 6.75 kWh it never has
-    to give back. In summer this is 0 kWh (the battery is drained overnight), which
-    is also where it ends the test month.
+    constraint, so starting it at the MILP's 50% would hand it energy it never has
+    to give back. In summer this is the SoC floor E_min (the battery is drained
+    overnight), which is also where it ends the test month.
     """
     hist = load_test_data(HISTORY_CSV, HISTORY_EXPORT_CSV, HISTORY_IMPORT_CSV)
     return float(simulate_self_consumption(hist, params, tariff)["battery_state"].iloc[-1])
@@ -93,7 +93,7 @@ def run_retail_simulation(tariff, params: BatteryParams | None = None, n_days=No
     if controller not in CONTROLLERS:
         raise ValueError(f"unknown controller {controller!r}; choose from {CONTROLLERS}")
     params = params or BatteryParams()
-    r_cell = R_CELL if r_cell is None else r_cell
+    r_cell = params.r_cell if r_cell is None else r_cell
     df = load_test_data(n_days=n_days) if df is None else df
     if controller == "rule":
         results = simulate_self_consumption(df, params, tariff)
@@ -104,36 +104,36 @@ def run_retail_simulation(tariff, params: BatteryParams | None = None, n_days=No
                                    export_price_kwh=tariff.export_price(ts), relax_binaries=True)
 
     soc_path = np.concatenate([[params.e_initial], results["battery_state"].to_numpy()])
-    rf = rainflow_aging_cost(soc_path, params.e_max, r_cell, params.phi_a, params.phi_k)
+    rf = rainflow_aging_cost(soc_path, params.e_rated, r_cell, params.phi_a, params.phi_k)
     m = retail_metrics(results, df, tariff, degradation_cost=rf["rainflow_cost"], r_cell=r_cell)
     m.update({
         "controller": controller,
         "initial_soc_kwh": params.e_initial,
         "final_soc_kwh": float(results["battery_state"].iloc[-1]),
-        "e_max": params.e_max,
+        "e_rated": params.e_rated,
         "r_cell": r_cell,
         "feed_in_c_per_kwh": 100 * tariff.feed_in_rate,
         "throughput_kwh": float(results["discharge_kw"].sum() * INTERVAL_HOURS),
-        "equivalent_full_cycles": float(results["discharge_kw"].sum() * INTERVAL_HOURS) / params.e_max,
+        "equivalent_full_cycles": float(results["discharge_kw"].sum() * INTERVAL_HOURS) / params.e_rated,
         "life_loss_pct": 100 * rf["life_loss_fraction"],
         "rainflow_cycles": rf["n_cycles"],
         "mean_cycle_depth": rf["mean_cycle_depth"],
     })
 
     if verbose:
-        print_metrics(f"{tariff.name}  {controller}  {params.e_max:g} kWh  FiT {100 * tariff.feed_in_rate:.0f} c/kWh", m)
+        print_metrics(f"{tariff.name}  {controller}  {params.e_rated:g} kWh  FiT {100 * tariff.feed_in_rate:.0f} c/kWh", m)
     if plot:
         os.makedirs(PLOTS_DIR, exist_ok=True)
         kind = "self-consumption" if controller == "rule" else f"optimised (MILP, J={params.n_segments})"
         tag = "" if controller == "rule" else "_milp"
         plot_battery_trading(
             results,
-            title=f"Retail {kind} — {tariff.name} ({params.e_max:g} kWh)",
+            title=f"Retail {kind} — {tariff.name} ({params.e_rated:g} kWh)",
             subtitle=(f"{tariff.plan}. The price panel shows the retail import rate in $/MWh, and the "
                       "profit tiles are the with-battery energy bill, not a trading result: the model is "
                       "scored as bill saving net of rainflow aging in results/retail_summary.csv."),
-            output_path=plot_output_path or f"{PLOTS_DIR}/retail_{tariff.name}{tag}_E{params.e_max:g}.html",
-            bess_size=params.e_max,
+            output_path=plot_output_path or f"{PLOTS_DIR}/retail_{tariff.name}{tag}_E{params.e_rated:g}.html",
+            bess_size=params.e_rated,
             show_plot=False,
         )
     return {"results_df": results, "metrics": m, "params": params, "tariff": tariff}
@@ -159,7 +159,7 @@ def print_metrics(label: str, m: dict) -> None:
     print(f"SoC {m['initial_soc_kwh']:.2f} -> {m['final_soc_kwh']:.2f} kWh")
 
 
-def run_tariff_comparison(tariff_names=None, n_days=None, feed_in_rate=None, e_max=None,
+def run_tariff_comparison(tariff_names=None, n_days=None, feed_in_rate=None, e_rated=None,
                           controllers=CONTROLLERS, plot=True, verbose=True):
     """Same battery, same meter data, every tariff and controller. Isolates the price structure from the control."""
     names = tariff_names or list(TARIFFS)
@@ -169,9 +169,10 @@ def run_tariff_comparison(tariff_names=None, n_days=None, feed_in_rate=None, e_m
         tariff = get_tariff(name, feed_in_rate=feed_in_rate)
         for controller in controllers:
             params = BatteryParams(r_cell=R_CELL, n_segments=N_SEGMENTS)
-            if e_max:
-                params.e_max = e_max
-                params.e_initial = e_max * 0.5
+            if e_rated:
+                params.e_rated = e_rated
+                params.e_initial = e_rated * 0.5
+                params.r_cell = R_CELL_PER_KWH * e_rated
             if controller == "rule":
                 params.e_initial = rule_initial_soc(params, tariff)
             out = run_retail_simulation(tariff, params, df=df, controller=controller, plot=plot, verbose=verbose)
@@ -191,7 +192,7 @@ def main():
     ap.add_argument("--controller", action="append", choices=CONTROLLERS,
                     help="controller to run (repeatable); default is both")
     ap.add_argument("--fit", type=float, default=None, help="override the feed-in tariff, $/kWh (e.g. 0.02)")
-    ap.add_argument("--e-max", type=float, default=None, help="override usable capacity, kWh")
+    ap.add_argument("--e-rated", type=float, default=None, help="override rated capacity, kWh")
     ap.add_argument("--rates", action="store_true", help="print where every rate came from, and exit")
     ap.add_argument("--no-plot", action="store_true")
     ap.add_argument("--quiet", action="store_true")
@@ -202,7 +203,7 @@ def main():
         return
 
     verbose = not args.quiet
-    summary = run_tariff_comparison(args.tariff, n_days=args.days, feed_in_rate=args.fit, e_max=args.e_max,
+    summary = run_tariff_comparison(args.tariff, n_days=args.days, feed_in_rate=args.fit, e_rated=args.e_rated,
                                     controllers=tuple(args.controller or CONTROLLERS),
                                     plot=not args.no_plot, verbose=verbose)
 
@@ -210,7 +211,7 @@ def main():
     suffix = f"_{args.days:g}d" if args.days else ""
     summary.to_csv(f"{RESULTS_DIR}/retail_summary{suffix}.csv", index=False)
 
-    cols = ["tariff", "controller", "e_max", "r_cell", "feed_in_c_per_kwh", "days", "bill_no_battery", "bill_with_battery",
+    cols = ["tariff", "controller", "e_rated", "r_cell", "feed_in_c_per_kwh", "days", "bill_no_battery", "bill_with_battery",
             "gross_saving", "degradation_cost", "net_saving", "annualised_net_saving",
             "simple_payback_years", "equivalent_full_cycles", "initial_soc_kwh", "final_soc_kwh"]
     pd.set_option("display.width", 250)

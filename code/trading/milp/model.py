@@ -32,20 +32,27 @@ import pulp
 from milp.degradation import PHI_A, PHI_K, segment_costs
 
 INTERVAL_HOURS = 5 / 60  # thesis: NEM dispatch period, 5 minutes
+E_RATED = 13.5            # kWh, rated capacity of the household battery
+R_CELL_PER_KWH = 800.0    # AUD per rated kWh, installed residential battery (see MODEL_NOTES.md)
 
 
 @dataclass
 class BatteryParams:
-    """Battery, inverter, tariff and degradation parameters. Defaults: Tesla Powerwall 3 (thesis Table 3.1)."""
+    """
+    Battery, inverter, tariff and degradation parameters. Defaults: a generic
+    lithium-ion battery with the test parameters of Xu et al. (2018) Sec. V-A
+    (efficiency, SoC window, NMC stress function) at household scale (thesis Table 3.1).
+    """
 
-    e_max: float = 13.5            # kWh usable capacity
-    e_min: float = 0.0             # kWh (usable capacity already includes the manufacturer reserve)
+    e_rated: float = E_RATED       # kWh rated capacity, E^rate: sizes the segments and normalises cycle depth
+    soc_min: float = 0.15          # Xu Sec. V-A: minimum state of charge
+    soc_max: float = 0.95          # Xu Sec. V-A: maximum state of charge
     p_max_charge: float = 5.0      # kW AC, Eq. 2.6d
     p_max_discharge: float = 11.04 # kW AC, Eq. 2.6e
-    eta_c: float = 0.89 ** 0.5     # thesis Sec. 3.3.3: split the 89% round trip evenly
-    eta_d: float = 0.89 ** 0.5
-    e_initial: float = 13.5 * 0.5  # kWh, E_0 (50% SoC)
-    r_cell: float = 12_000.0       # AUD replacement cost. PLACEHOLDER, needs a cited figure.
+    eta_c: float = 0.95            # Xu Sec. V-A: charging and discharging efficiency
+    eta_d: float = 0.95
+    e_initial: float = E_RATED * 0.5  # kWh, E_0 (50% SoC)
+    r_cell: float = R_CELL_PER_KWH * E_RATED  # AUD replacement cost
     n_segments: int = 1            # J cycle-depth segments; J = 1 is the linear model
     phi_a: float = PHI_A
     phi_k: float = PHI_K
@@ -55,12 +62,20 @@ class BatteryParams:
     allow_grid_charging: bool = True  # False restricts charging to the household's own surplus
 
     @property
+    def e_min(self) -> float:
+        return self.soc_min * self.e_rated  # kWh, E_min in Eq. 2.6i
+
+    @property
+    def e_max(self) -> float:
+        return self.soc_max * self.e_rated  # kWh, E_max in Eq. 2.6i
+
+    @property
     def segment_capacity(self) -> float:
-        return self.e_max / self.n_segments  # E_j, thesis Sec. 2.3.1
+        return self.e_rated / self.n_segments  # E_j, thesis Sec. 2.3.1
 
     @property
     def segment_costs(self) -> np.ndarray:
-        return segment_costs(self.r_cell, self.e_max, self.eta_d, self.n_segments, self.phi_a, self.phi_k)
+        return segment_costs(self.r_cell, self.e_rated, self.eta_d, self.n_segments, self.phi_a, self.phi_k)
 
     def initial_segment_energy(self, e_total: float | None = None) -> np.ndarray:
         """Split an aggregate SoC across segments, shallowest (cheapest) segment first. Eq. 2.6j."""
@@ -75,7 +90,8 @@ class BatteryParams:
     @classmethod
     def state_machine_equivalent(cls, **overrides) -> "BatteryParams":
         """The 20 kWh / 11.04 kW symmetric lossless battery used by the state machine, for like-for-like runs."""
-        base = dict(e_max=20.0, p_max_charge=11.04, p_max_discharge=11.04, eta_c=1.0, eta_d=1.0, e_initial=10.0)
+        base = dict(e_rated=20.0, soc_min=0.0, soc_max=1.0, p_max_charge=11.04, p_max_discharge=11.04,
+                    eta_c=1.0, eta_d=1.0, e_initial=10.0)
         base.update(overrides)
         return cls(**base)
 

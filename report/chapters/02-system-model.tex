@@ -27,14 +27,15 @@ Figure~\ref{fig:sysmodel} shows the basic system model that will be considered.
   \item[$\Delta t$] NEM dispatch period, 5 minutes
   \item[$N$] Network tariff (\$/kWh)
   \item[$P^c_{max}, P^d_{max}$] The maximum charging and discharging rates of the battery inverter (kW)
-    \item[$E_{max}$] The maximum capacity of battery (kWh)
-    \item[$E_{min}$] The minimum permitted state of charge (kWh), zero in this work because $E_{max}$ is the usable capacity
+    \item[$E^{\text{rate}}$] The rated energy capacity of the battery (kWh)
+    \item[$E_{max}$] The maximum permitted state of charge (kWh)
+    \item[$E_{min}$] The minimum permitted state of charge (kWh)
     \item[$E_0$] The state of charge at the start of the horizon (kWh)
     \item[$\eta^c$] Battery charging efficiency (\%)
     \item[$\eta^d$] Battery discharging efficiency (\%)
     \item[$\alpha_d$] Battery degradation coefficient (\$/kWh)
   \item[$J$] Number of cycle depth segments, indexed by $j$
-  \item[$\delta$] Cycle depth, as a fraction of usable capacity
+  \item[$\delta$] Cycle depth, as a fraction of rated capacity
   \item[$\Phi(\delta)$] Cycle depth stress function (fraction of cell life lost per cycle of depth $\delta$)
   \item[$R^{\text{cell}}$] Battery replacement cost (\$)
   \item[$c_j$] Marginal aging cost of cycle depth segment $j$ (\$/kWh)
@@ -69,7 +70,7 @@ Let $\Phi(\delta)$ denote the cycle depth stress function, giving the fraction o
 
 \begin{equation}
     \label{eq:goal:cj}
-    c_j = \frac{R^{\text{cell}}}{\eta^d E_{max}}J
+    c_j = \frac{R^{\text{cell}}}{\eta^d E^{\text{rate}}}J
     \left[ \Phi\!\left(\frac{j}{J}\right) - \Phi\!\left(\frac{j-1}{J}\right) \right]
 \end{equation}
 
@@ -102,9 +103,9 @@ The battery model introduces constraints to the system as outlined in Equation~\
 
 $u^c_t$ and $u^d_t$ are binary variables. If the battery is charging $u^c_t = 1$ otherwise $u^c_t = 0$, $u^d_t$ follows the same logic for battery discharge. These binary variables are introduced to prevent the model from charging and discharging the battery simultaneously as used in \cite{Cao2020}.
 
-Constraints \ref{eq:batModel:charge} and \ref{eq:batModel:discharge} reflect the battery inverter limits for charging and discharging the battery, which are asymmetric for the Powerwall 3 (Table~\ref{tab:powerwall3_specs}). \ref{eq:batModel:bound} bounds the battery SoC.
+Constraints \ref{eq:batModel:charge} and \ref{eq:batModel:discharge} reflect the battery inverter limits for charging and discharging the battery, which need not be equal (Table~\ref{tab:battery_params}). \ref{eq:batModel:bound} keeps the battery SoC between its minimum and maximum permitted levels, which lie inside the rated capacity $E^{\text{rate}}$.
 
-To represent cycle depth, the battery energy is disaggregated across the $J$ cycle depth segments introduced in Section~\ref{sec:degradation}. Each segment $j$ holds its own energy level $E_{t,j}$, bounded by the segment capacity $E_j = E_{max}/J$, and the total charge and discharge power is the sum of the per-segment components, \eqref{eq:batModel:sumc} and \eqref{eq:batModel:sumd}. Tracking energy per segment, \eqref{eq:batModel:soc}, allows the current cycle depth to be identified: because the marginal cost curve is convex, the battery discharges from the shallowest available segment towards the deeper, more expensive ones \cite{Xu2018}. The aggregate SoC is $E_t = \sum_j E_{t,j}$.
+To represent cycle depth, the battery energy is disaggregated across the $J$ cycle depth segments introduced in Section~\ref{sec:degradation}. Each segment $j$ holds its own energy level $E_{t,j}$, bounded by the segment capacity $E_j = E^{\text{rate}}/J$, and the total charge and discharge power is the sum of the per-segment components, \eqref{eq:batModel:sumc} and \eqref{eq:batModel:sumd}. Tracking energy per segment, \eqref{eq:batModel:soc}, allows the current cycle depth to be identified: because the marginal cost curve is convex, the battery discharges from the shallowest available segment towards the deeper, more expensive ones \cite{Xu2018}. The aggregate SoC is $E_t = \sum_j E_{t,j}$.
 
 Constraint \ref{eq:batModel:terminal} requires the battery to finish the horizon with at least the energy it started with. Without it the model would discharge the battery in the final intervals regardless of subsequent prices, an end-of-horizon artefact that would overstate revenue.
 

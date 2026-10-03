@@ -17,7 +17,7 @@ import time
 
 import pandas as pd
 
-from milp.model import BatteryParams
+from milp.model import E_RATED, R_CELL_PER_KWH, BatteryParams
 from milp.rolling import simulate_milp, summarise
 from plotting.battery_plot import plot_battery_trading
 from plotting.milp_sweep_plot import plot_j_sweep
@@ -29,11 +29,11 @@ TEST_IMPORT_CSV = "data/import_JAN25.csv"
 RESULTS_DIR = "results"
 PLOTS_DIR = "plots"
 J_SWEEP = (1, 2, 4, 8, 16)
-R_CELL = 12_000.0  # AUD, placeholder replacement cost for a Powerwall 3
+R_CELL = R_CELL_PER_KWH * E_RATED  # AUD, 800 AUD/kWh installed x 13.5 kWh (see milp/MODEL_NOTES.md)
 EXPORT_LIMITS_KW = (None, 10.0, 5.0)  # grid export limit study; None = unlimited (the headline runs)
 SM_BUY_THRESHOLD, SM_SELL_THRESHOLD = 69.70, 127.20  # thesis Table 5.1 (DEC24 grid search)
 SPIKE_RRP = 1000.0  # $/MWh, the price-spike band used in RESULTS.md
-KEEP_RUN_PLOTS = {"household_J4_R12000"}   # per-run pages drawn by default; the rest need --per-run
+KEEP_RUN_PLOTS = {f"household_J4_R{int(R_CELL)}"}   # per-run pages drawn by default; the rest need --per-run
 
 
 def load_test_data(test_csv=TEST_CSV, export_csv=TEST_EXPORT_CSV, import_csv=TEST_IMPORT_CSV, household=True, n_days=None):
@@ -84,7 +84,7 @@ def run_milp_simulation(
     os.makedirs(RESULTS_DIR, exist_ok=True)
     results_df.to_csv(f"{RESULTS_DIR}/milp_{label}.csv", index=False)
     if plot:
-        plot_milp_run(results_df, label, params.e_max, title=plot_title, output_path=plot_output_path)
+        plot_milp_run(results_df, label, params.e_rated, title=plot_title, output_path=plot_output_path)
     return {"results_df": results_df, "metrics": metrics, "params": params, "label": label}
 
 
@@ -95,10 +95,10 @@ def run_title(label: str) -> str:
     return f"Perfect-foresight MILP, {sc}, {aging}"
 
 
-def plot_milp_run(results_df: pd.DataFrame, label: str, e_max: float, title=None, output_path=None) -> None:
+def plot_milp_run(results_df: pd.DataFrame, label: str, e_rated: float, title=None, output_path=None) -> None:
     os.makedirs(PLOTS_DIR, exist_ok=True)
     plot_battery_trading(results_df, title=title or run_title(label), output_path=output_path or f"{PLOTS_DIR}/milp_{label}.html",
-                         bess_size=e_max, show_plot=False)
+                         bess_size=e_rated, show_plot=False)
 
 
 def print_metrics(label: str, m: dict) -> None:
@@ -231,11 +231,11 @@ def replot(n_days=None, per_run_plots=False) -> None:
     suffix = f"_{n_days}d" if n_days else ""
     summary = pd.read_csv(f"{RESULTS_DIR}/milp_summary{suffix}.csv")
     plot_j_sweep(summary, title=f"MILP degradation study JAN25{suffix}", output_path=f"{PLOTS_DIR}/milp_j_sweep{suffix}.html")
-    e_max = BatteryParams().e_max
+    e_rated = BatteryParams().e_rated
     for path in sorted(glob.glob(f"{RESULTS_DIR}/milp_*_J*_R*.csv")):
         label = os.path.basename(path)[len("milp_"):-len(".csv")]
         if per_run_plots or label in KEEP_RUN_PLOTS:
-            plot_milp_run(pd.read_csv(path), label, e_max)
+            plot_milp_run(pd.read_csv(path), label, e_rated)
 
 
 def main():
