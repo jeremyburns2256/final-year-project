@@ -9,6 +9,7 @@ Design decisions are recorded in trading/FORECAST_NOTES.md.
     SeasonalNaiveForecaster  same 30-min slot previous day; 7-day net-local profile
     AemoPredispatchForecaster  latest AEMO PREDISPATCHPRICE run before t
     LstmPriceForecaster   LSTM on asinh(RRP/100), 48 half-hour outputs
+    LstmLoadForecaster    actual price, LSTM net-local after Kong et al. (2019), 48 half-hour outputs
 """
 
 from forecasting.base import Forecaster, Frame, load_frame

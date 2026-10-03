@@ -39,6 +39,7 @@ HORIZON_HOURS = 24.0
 ALL_FORECASTERS = ("perfect", "perfect_price", "naive", "aemo", "lstm")
 PERFECT_NET_SUFFIX = "_perfect_net"
 PERFECT_NET_FORECASTERS = tuple(f + PERFECT_NET_SUFFIX for f in ("naive", "aemo", "lstm"))
+LSTM_NET_SUFFIX = "_lstm_net"
 # Noise sensitivity study (forecasting/noisy.py): sigma_max at 24 h ahead, price in asinh(R/100) units, net-local in kW.
 NOISE_PRICE_SIGMAS = (0.25, 0.5, 1.0, 2.0)
 NOISE_NET_SIGMAS_KW = (0.5, 1.0, 2.0, 3.0)
@@ -61,6 +62,16 @@ def make_forecaster(name: str, frame, household: bool = True):
     if name == "lstm":
         from forecasting.lstm import LstmPriceForecaster
         return LstmPriceForecaster(frame)
+    if name == "lstm_load":
+        from forecasting.load_lstm import LstmLoadForecaster
+        return LstmLoadForecaster(frame)
+    if name.endswith(LSTM_NET_SUFFIX):
+        # A price forecaster given the LSTM net-local forecast in place of the 7-day profile.
+        from forecasting.load_lstm import LstmLoadForecaster
+        forecaster = make_forecaster(name.removesuffix(LSTM_NET_SUFFIX), frame, household)
+        forecaster.name = name
+        forecaster.net_local = LstmLoadForecaster(frame).net_local
+        return forecaster
     if name.startswith(("noise_price_", "noise_net_")):
         from forecasting.noisy import NoisyForecaster
         sigma = float(name.rsplit("_", 1)[1])

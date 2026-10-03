@@ -79,6 +79,11 @@ class Frame:
         x = np.concatenate([self.demand, np.full(pad, np.nan)]) if pad else self.demand
         return np.nanmean(x.reshape(-1, INTERVALS_PER_SLOT), axis=1)
 
+    def net_local_half_hourly(self) -> np.ndarray:
+        pad = self.n_slots * INTERVALS_PER_SLOT - self.n
+        x = np.concatenate([self.net_local, np.full(pad, np.nan)]) if pad else self.net_local
+        return np.nanmean(x.reshape(-1, INTERVALS_PER_SLOT), axis=1)
+
     def test_df(self) -> pd.DataFrame:
         """The test slice in the column layout the MILP/plotting code expects."""
         i = slice(self.test_start, self.n)

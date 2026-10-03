@@ -215,3 +215,31 @@ survives as forecasts get worse, as a curve rather than the four real forecaster
   with the 7-day profile, against perfect price: naive 3.77, AEMO 5.00, LSTM 3.53.
   Price error costs more when the load is known: the two errors are sub-additive
   (LSTM 5.02 + profile 9.15 = 14.17 against a joint gap of 12.68).
+
+## Load model: LSTM after Kong et al. (2026-10-03)
+
+- **Why now.** "One house for two months cannot train an LSTM" (above) no longer holds:
+  `data/import.csv` / `data/export.csv` hold 20 Feb 2024 - 20 Feb 2025 at 5 min, identical to
+  the re-stamped DEC24 / JAN25 files where they overlap. Kong et al. (2019, IEEE TSG) train a
+  per-household LSTM on about 64 days.
+- **Kept from Kong:** 2 stacked LSTM layers x 20 units; inputs per half hour are the load
+  (min-max scaled) plus one-hot slot of day, one-hot day of week and a holiday flag; Adam defaults.
+- **Changed:** the target is net-local (signed), not consumption; the head has 48 outputs
+  (direct 24 h, as the price LSTM) because Kong forecast only the next half hour; look-back is
+  48 half hours (Kong 2-12); MSE loss (Kong does not state one); early stopping on validation
+  MSE, patience 20, in place of a fixed 150 epochs; MAE in kW in place of MAPE.
+- **Split:** train to 31 Oct 2024 (11 857 windows), validate Nov-Dec 2024, test JAN25.
+- **Code:** `forecasting/load_lstm.py`, `forecasting/train_load_lstm.py`, `models/load_lstm.pt`.
+  Forecasters: `lstm_load` (actual price, LSTM net-local; compare with `perfect_price`) and
+  any `<name>_lstm_net` (that price forecaster with the LSTM net-local).
+- **Accuracy on JAN25** (5-min resolution, 24 h forecasts issued every half hour, one seed,
+  best epoch 35 of 55):
+
+  | | MAE kW | RMSE kW | bias kW | MAE first hour | MAE at 24 h |
+  |---|---|---|---|---|---|
+  | 7-day profile | 1.154 | 1.768 | 0.103 | 1.170 | 1.134 |
+  | LSTM | 1.047 | 1.544 | 0.002 | 0.929 | 1.064 |
+
+- **Not yet run:** the MPC with `lstm_load`. Dispatch value is unknown.
+  `python forecast_trading.py --forecasters perfect perfect_price naive aemo lstm naive_perfect_net aemo_perfect_net lstm_perfect_net lstm_load --reuse --no-plot`
+  (`--reuse` solves only `lstm_load`; listing the others keeps them in `results/forecast_summary.csv`).
