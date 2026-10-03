@@ -207,36 +207,39 @@ and the other adds $x_j \leq \lfloor x_j^* \rfloor$. The relaxed LP is then solv
 Network tariffs are charged by electricity distributors to retailers for delivering electricity. The charge is associated with the infrastructure costs, maintenance, and operation of electricity transmission. Network infrastructure in NSW is a regulated asset, owned by private companies that are entitled to fixed revenue set by the Australian Energy Regulator \cite{AER_ReturnOnAssets}. This project will consider low-voltage residential connections on the Ausgrid network. This tariff consists of a daily metering service and network access charge along with a network energy price of 10.8007 cents/kWh \cite{ausgrid2024networkpricelist}.
 
 \subsection{Battery and Inverter Models}
-There is a wide variety of residential batteries available in the Australian market. Under the Small-scale Renewable Energy Scheme introduced in July 2025, the average nominal battery size has been 19.0 kWh \cite{CER2025battery}. This project will consider the specifications of the Tesla Powerwall 3. The Powerwall 3 is ubiquitous in home energy storage and has an inverter built into the battery system. The key technical specifications are summarised in the Table~\ref{tab:powerwall3_specs} \cite{tesla2025powerwall3}.
+There is a wide variety of residential batteries available in the Australian market. Under the Small-scale Renewable Energy Scheme introduced in July 2025, the average nominal battery size has been 19.0 kWh \cite{CER2025battery}. This project does not model a particular product. It considers a generic lithium-ion battery whose electrical and aging parameters follow the test battery of Xu et al.\ \cite{Xu2018}, at a capacity and inverter rating typical of a single residential unit. The parameters are summarised in Table~\ref{tab:battery_params}. The state of charge is held between 15\% and 95\% of the rated capacity, so 10.8~kWh of the 13.5~kWh is usable.
 
 \begin{table}[h]
     \centering
-    \caption{Tesla Powerwall 3 Technical Specifications}
-    \label{tab:powerwall3_specs}
-    \begin{tabular}{ll}
+    \caption{Battery parameters}
+    \label{tab:battery_params}
+    \begin{tabular}{lll}
         \toprule
-        \textbf{Parameter} & \textbf{Value} \\
+        \textbf{Parameter} & \textbf{Value} & \textbf{Source} \\
         \midrule
-        \multicolumn{2}{l}{\textit{Energy \& Power}} \\
-        Usable energy capacity & 13.5 kWh \\
-        Max.\ continuous discharge power & 11.04 kW\textsubscript{AC} \\
-        Max.\ continuous charge power & 5 kW\textsubscript{AC} \\
+        \multicolumn{3}{l}{\textit{Energy \& Power}} \\
+        Rated energy capacity $E^{\text{rate}}$ & 13.5 kWh & Residential scale \\
+        Max.\ charge power $P^c_{max}$ & 5 kW\textsubscript{AC} & Residential scale \\
+        Max.\ discharge power $P^d_{max}$ & 11.04 kW\textsubscript{AC} & Residential scale \\
         \midrule
-        \multicolumn{2}{l}{\textit{Efficiency}} \\
-        Solar to Battery to Home/Grid Efficiency & 89\% \\
-        Solar to Home/Grid Efficiency & 97.5\% \\
+        \multicolumn{3}{l}{\textit{Operation}} \\
+        Charging and discharging efficiency $\eta^c$, $\eta^d$ & 95\% & \cite{Xu2018} \\
+        Maximum state of charge $E_{max}$ & 95\% (12.825 kWh) & \cite{Xu2018} \\
+        Minimum state of charge $E_{min}$ & 15\% (2.025 kWh) & \cite{Xu2018} \\
         \midrule
-        \multicolumn{2}{l}{\textit{Scalability}} \\
-        Usable energy capacity per expansion unit & 13.5 kWh \\
-        Expansion units per Powerwall 3 & Up to 3 \\
-        Max.\ system energy capacity & 54 kWh \\
-        \midrule
-        \multicolumn{2}{l}{\textit{Solar Integration}} \\
-        Maximum Solar STC Input  & 20 kW\textsubscript{DC} \\
+        \multicolumn{3}{l}{\textit{Aging}} \\
+        Cell chemistry & Li(NiMnCo)O\textsubscript{2} & \cite{Xu2018} \\
+        Cycle life & 3000 cycles at 80\% cycle depth & \cite{Xu2018} \\
+        Shelf life & 10 years & \cite{Xu2018} \\
+        Cell temperature & 25~\textdegree C & \cite{Xu2018} \\
+        Replacement cost $R^{\text{cell}}$ & \$800/kWh (\$10\,800) & \cite{SolarChoice2026battery} \\
         \bottomrule
     \end{tabular}
     \\ \vspace{0.5em}
 \end{table}
+
+Xu et al.\ use a pack replacement cost of US\$300/kWh for a grid-scale battery. A household pays considerably more per unit of capacity, so the replacement cost is instead set from Australian installed prices: about \$750 to \$830/kWh for 10 to 20~kWh systems including installation and GST, before the federal rebate \cite{SolarChoice2026battery}. A figure of \$800/kWh of rated capacity is adopted. Because an installed price includes labour and balance of system as well as the cells, it is an upper estimate of the cost of replacing them.
+% TODO: check the 750-830 $/kWh range against the Solar Choice index page (figures taken from a search summary of the August 2026 index).
 
 
 \subsection{Cycle Depth Stress Function}
@@ -250,7 +253,7 @@ The degradation model of Section~\ref{sec:degradation} requires a cycle depth st
 
 The exponent greater than unity is what makes the marginal cost curve convex, and hence what makes deep cycling progressively more expensive per unit of energy than shallow cycling.
 
-Equation~\eqref{eq:stressfn} is adopted as an initial parameterisation, with the caveat that it is fitted to NMC chemistry, whereas the Powerwall 3 uses lithium iron phosphate (LFP). LFP cells exhibit a flatter relationship between cycle depth and life, so \eqref{eq:stressfn} is expected to overstate the penalty on deep cycling for this battery. Refitting the exponent against published LFP cycle life data, and quantifying the sensitivity of dispatch to that exponent, is identified as a task in Section~\ref{sec:bess_only}. The efficiencies $\eta^c$ and $\eta^d$ are taken as $\sqrt{0.89} \approx 0.943$ each, since Table~\ref{tab:powerwall3_specs} reports a round trip figure.
+Equation~\eqref{eq:stressfn} is consistent with the cycle life in Table~\ref{tab:battery_params}: $\Phi(0.8) = 3.33\times10^{-4}$, or one three-thousandth of cell life per cycle of 80\% depth. Cycle depth $\delta$ is measured as a fraction of the rated capacity, so the state of charge limits cap the deepest possible cycle at 80\%. The stress function is fitted to NMC chemistry. Lithium iron phosphate (LFP) cells exhibit a flatter relationship between cycle depth and life, so \eqref{eq:stressfn} would overstate the penalty on deep cycling for an LFP battery.
 
 \subsection{Solar}
 The average solar installation size has continued to increase. In the first quarter of 2025, the average installation size in NSW was 9.9 kW \cite{AEC2025Solar}.

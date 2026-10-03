@@ -9,11 +9,14 @@ Thesis references: Eq. 2.3 (c_j), Eq. 3.8 (Phi), Section 6.2 (rainflow validatio
 
 NOTE ON EQ. 2.3: thesis Eq. 2.3 is Xu Eq. (5),
 
-    c_j = R * J / (eta_d * E_max) * [Phi(j/J) - Phi((j-1)/J)]      [$/kWh]
+    c_j = R * J / (eta_d * E_rate) * [Phi(j/J) - Phi((j-1)/J)]      [$/kWh]
 
-The J is required dimensionally: segment j delivers only eta_d * E_max / J kWh,
+The J is required dimensionally: segment j delivers only eta_d * E_rate / J kWh,
 so the life consumed by that segment, R*[Phi(j/J)-Phi((j-1)/J)] dollars, must be
-spread over E_max/J kWh, not E_max kWh. (An early draft of the thesis omitted it.)
+spread over E_rate/J kWh, not E_rate kWh. (An early draft of the thesis omitted it.)
+
+E_rate is the rated capacity. Cycle depth is a fraction of it throughout, so the
+SoC window (E_min, E_max) limits how deep a cycle can be without rescaling Phi.
 """
 
 from __future__ import annotations
@@ -32,7 +35,7 @@ def stress_function(delta, a: float = PHI_A, k: float = PHI_K):
 
 def segment_costs(
     r_cell: float,
-    e_max: float,
+    e_rated: float,
     eta_d: float,
     n_segments: int,
     a: float = PHI_A,
@@ -46,10 +49,10 @@ def segment_costs(
     """
     j = np.arange(1, n_segments + 1)
     d_phi = stress_function(j / n_segments, a, k) - stress_function((j - 1) / n_segments, a, k)
-    return r_cell * n_segments / (eta_d * e_max) * d_phi
+    return r_cell * n_segments / (eta_d * e_rated) * d_phi
 
 
-def rainflow_life_loss(soc_kwh: np.ndarray, e_max: float, a: float = PHI_A, k: float = PHI_K) -> tuple[float, list]:
+def rainflow_life_loss(soc_kwh: np.ndarray, e_rated: float, a: float = PHI_A, k: float = PHI_K) -> tuple[float, list]:
     """
     Ex-post cycle life loss from a SoC trajectory using rainflow counting (Xu Sec. II-C, Eq. 1).
 
@@ -61,18 +64,18 @@ def rainflow_life_loss(soc_kwh: np.ndarray, e_max: float, a: float = PHI_A, k: f
     """
     import rainflow
 
-    sigma = np.asarray(soc_kwh, dtype=float) / e_max
+    sigma = np.asarray(soc_kwh, dtype=float) / e_rated
     cycles = list(rainflow.extract_cycles(sigma))
     loss = float(sum(count * stress_function(rng, a, k) for rng, _mean, count, _i0, _i1 in cycles))
     return loss, cycles
 
 
-def rainflow_aging_cost(soc_kwh: np.ndarray, e_max: float, r_cell: float, a: float = PHI_A, k: float = PHI_K) -> dict:
+def rainflow_aging_cost(soc_kwh: np.ndarray, e_rated: float, r_cell: float, a: float = PHI_A, k: float = PHI_K) -> dict:
     """
     Ex-post aging cost R * L and cycle statistics for a SoC trajectory.
     Used to validate the piecewise-linear model cost (Xu Eq. 26, thesis Sec. 6.2).
     """
-    loss, cycles = rainflow_life_loss(soc_kwh, e_max, a, k)
+    loss, cycles = rainflow_life_loss(soc_kwh, e_rated, a, k)
     depths = np.array([c[0] for c in cycles]) if cycles else np.array([])
     counts = np.array([c[2] for c in cycles]) if cycles else np.array([])
     return {

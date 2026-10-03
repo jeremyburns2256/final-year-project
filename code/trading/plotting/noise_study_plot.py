@@ -390,7 +390,7 @@ def _cycle_depth_panels(results, names, r_cell: float):
     for n in names:
         if n not in results:
             continue
-        _, cycles = rainflow_life_loss(results[n]["battery_state"].to_numpy(), params.e_max)
+        _, cycles = rainflow_life_loss(results[n]["battery_state"].to_numpy(), params.e_rated)
         depth = np.array([c[0] for c in cycles]); count = np.array([c[2] for c in cycles])
         idx = np.clip(np.digitize(depth, DEPTH_EDGES) - 1, 0, len(centres) - 1)
         data[f"n_{n}"] = np.bincount(idx, weights=count, minlength=len(centres))
@@ -474,7 +474,7 @@ def _run_table(noise: pd.DataFrame, real: pd.DataFrame | None, lost: dict) -> pd
 
 
 def plot_noise_study(noise: pd.DataFrame, real: pd.DataFrame | None, results: dict, lead: pd.DataFrame,
-                     title: str, output_path: str, r_cell: float = 12_000.0, example: dict | None = None):
+                     title: str, output_path: str, r_cell: float = BatteryParams().r_cell, example: dict | None = None):
     """
     noise   : results/forecast_noise_summary.csv
     real    : results/forecast_summary.csv, or None

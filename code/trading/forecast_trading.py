@@ -151,7 +151,7 @@ def run_one(name: str, household: bool, n_days, solver_name: str, plot: bool, ve
     if plot:
         os.makedirs(PLOTS_DIR, exist_ok=True)
         plot_battery_trading(results_df, title=label, output_path=f"{PLOTS_DIR}/{label}.html",
-                             bess_size=params.e_max, show_plot=False)
+                             bess_size=params.e_rated, show_plot=False)
     if verbose:
         print_metrics(label, metrics)
         print(f"Price MAE {metrics['price_mae']:.1f} $/MWh (rMAE vs naive {metrics['price_rmae_vs_naive']:.3f}; "
@@ -226,11 +226,11 @@ def plot_study(summary: pd.DataFrame, forecasters=ALL_FORECASTERS, household: bo
     suffix = f"_{n_days}d" if n_days else ""
     os.makedirs(PLOTS_DIR, exist_ok=True)
     if per_run:
-        e_max = BatteryParams(r_cell=R_CELL, n_segments=N_SEGMENTS).e_max
+        e_rated = BatteryParams(r_cell=R_CELL, n_segments=N_SEGMENTS).e_rated
         for f in names:
             label = f"mpc_{scenario}_J{N_SEGMENTS}_{f}"
             plot_battery_trading(res[f], title=f"MPC, {scenario}, J={N_SEGMENTS}, {f} forecaster",
-                                 output_path=f"{PLOTS_DIR}/{label}.html", bess_size=e_max, show_plot=False)
+                                 output_path=f"{PLOTS_DIR}/{label}.html", bess_size=e_rated, show_plot=False)
     plot_forecast_study(summary, res, frame, fcs, title=f"Forecast study JAN25{suffix}",
                         output_path=f"{PLOTS_DIR}/forecast_study{suffix}.html", day=day)
 

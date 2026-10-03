@@ -10,14 +10,24 @@ Written 2026-09-21. Every number is read from `results/*.csv`.
 > `python forecast_trading.py` (about 1 hour), then refresh sections 3 and 5.
 > The noise sensitivity study (section 3, 2026-09-30) is on the corrected data; its
 > comparison with the real forecasters uses the stale Study 2 rows.
+
+> **Stale after the 2026-10-03 battery change.** The battery is now a generic
+> lithium-ion battery after Xu et al. (2018): 13.5 kWh rated with a 15% to 95% SoC
+> window (10.8 kWh usable), η_c = η_d = 0.95, R_cell = 800 AUD/kWh = 10 800 AUD
+> (`milp/MODEL_NOTES.md`). Every number in this file was produced with the Powerwall 3
+> parameters (13.5 kWh usable, η = 0.943, R_cell = 12 000) and none has been re-run.
+> To refresh: `python milp_trading.py`, `python forecast_trading.py`,
+> `python retail_trading.py`. Run labels and plot names change from `R12000` to `R10800`.
+
 Design decisions behind each study are in `milp/MODEL_NOTES.md`, `FORECAST_NOTES.md`
 and `retail/MODEL_NOTES.md`. All dollar figures are AUD for the 31 days of January
 2025 (JAN25, NSW1, 8928 five-minute intervals) unless stated otherwise.
 
 ## 1. Setup common to all studies
 
-- **Battery:** Powerwall 3, 13.5 kWh usable, 5 kW charge / 11.04 kW discharge,
-  η_c = η_d = 0.943, E_0 = 6.75 kWh.
+- **Battery (as run):** Powerwall 3, 13.5 kWh usable, 5 kW charge / 11.04 kW discharge,
+  η_c = η_d = 0.943, E_0 = 6.75 kWh. The code defaults have since moved to the
+  generic Xu battery (see the note at the top).
 - **Household:** one house, net meter data only (B1 export, E1 import), so the model
   sees net local power G − A and never G and A separately. The meter registers both
   channels in 636 intervals; they are netted per interval in every study, including
