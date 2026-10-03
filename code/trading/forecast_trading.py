@@ -37,6 +37,8 @@ PLOTS_DIR = "plots"
 N_SEGMENTS = 4
 HORIZON_HOURS = 24.0
 ALL_FORECASTERS = ("perfect", "perfect_price", "naive", "aemo", "lstm")
+PERFECT_NET_SUFFIX = "_perfect_net"
+PERFECT_NET_FORECASTERS = tuple(f + PERFECT_NET_SUFFIX for f in ("naive", "aemo", "lstm"))
 # Noise sensitivity study (forecasting/noisy.py): sigma_max at 24 h ahead, price in asinh(R/100) units, net-local in kW.
 NOISE_PRICE_SIGMAS = (0.25, 0.5, 1.0, 2.0)
 NOISE_NET_SIGMAS_KW = (0.5, 1.0, 2.0, 3.0)
@@ -65,6 +67,13 @@ def make_forecaster(name: str, frame, household: bool = True):
         if name.startswith("noise_price_"):
             return NoisyForecaster(frame, price_sigma=sigma, name=name)
         return NoisyForecaster(frame, net_sigma_kw=sigma, name=name)
+    if name.endswith(PERFECT_NET_SUFFIX):
+        # A real price forecaster given the actual net-local, on the same footing as the noise_price_* runs.
+        from forecasting.naive import PerfectForecaster
+        forecaster = make_forecaster(name.removesuffix(PERFECT_NET_SUFFIX), frame, household)
+        forecaster.name = name
+        forecaster.net_local = PerfectForecaster(frame).net_local
+        return forecaster
     raise ValueError(f"unknown forecaster {name!r}; choose from {ALL_FORECASTERS}")
 
 
@@ -267,9 +276,10 @@ def plot_noise(suffix: str = "") -> None:
     names = list(noise["forecaster"]) + ([f for f in real["forecaster"] if f != "perfect"] if real is not None else [])
     lead_path = f"{RESULTS_DIR}/forecast_error_by_lead{suffix}.csv"
     lead = pd.read_csv(lead_path) if os.path.exists(lead_path) else None
-    missing = [n for n in names if lead is None or n not in set(lead["forecaster"])]
+    forecasts = [n for n in names if not n.endswith(PERFECT_NET_SUFFIX)]   # the *_perfect_net runs repeat a price forecast
+    missing = [n for n in forecasts if lead is None or n not in set(lead["forecaster"])]
     frame = load_frame(n_test_days=float(suffix[1:-1]) if suffix else None)
-    example = example_forecasts(frame, names) if not suffix else None
+    example = example_forecasts(frame, forecasts) if not suffix else None
     if missing:
         lead = pd.concat([lead, lead_time_errors(frame, missing)], ignore_index=True) if lead is not None else lead_time_errors(frame, missing)
         lead.to_csv(lead_path, index=False)

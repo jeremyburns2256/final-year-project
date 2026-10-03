@@ -201,3 +201,17 @@ survives as forecasts get worse, as a curve rather than the four real forecaster
   MPC, step-0 actual price. The perfect-foresight run is re-solved as sigma = 0.
 - Run: `python forecast_trading.py --noise-study` (9 runs in parallel, ~40 min).
   Output: `results/forecast_noise_summary.csv`, `results/mpc_household_J4_noise_*.csv/.json`.
+
+## Real price forecasters with the actual load (2026-10-01)
+
+- `naive_perfect_net`, `aemo_perfect_net`, `lstm_perfect_net` (`make_forecaster`, any `<name>_perfect_net`):
+  the real price forecast with the actual net-local, so the real forecasters can be measured
+  against perfect foresight on the same footing as the `noise_price_*` runs.
+- Main study re-run on the corrected (2026-09-21 re-stamp) data together with these three:
+  `python forecast_trading.py --forecasters perfect perfect_price naive aemo lstm naive_perfect_net aemo_perfect_net lstm_perfect_net --no-plot`
+  (8 runs in parallel, 76 min), then `--plot-only` and `--noise-study --plot-only`.
+- Value lost to the price forecast, $ over JAN25 (perfect 28.24, perfect price 19.09):
+  with the actual load, against perfect: naive 5.24, AEMO 5.53, LSTM 5.02;
+  with the 7-day profile, against perfect price: naive 3.77, AEMO 5.00, LSTM 3.53.
+  Price error costs more when the load is known: the two errors are sub-additive
+  (LSTM 5.02 + profile 9.15 = 14.17 against a joint gap of 12.68).

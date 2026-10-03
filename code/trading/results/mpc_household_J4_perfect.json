@@ -19,7 +19,7 @@
   "equivalent_full_cycles": 9.321876029570314,
   "final_soc_kwh": 10.125,
   "n_windows": 8928,
-  "solve_seconds": 2628.3134181779765,
+  "solve_seconds": 2406.2174002509782,
   "price_mae": 0.0,
   "price_median_ae": 0.0,
   "price_mae_clip1000": 11.598077145500808,
