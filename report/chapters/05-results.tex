@@ -478,6 +478,103 @@ Ranked by MAE the order is LSTM, seasonal naive, AEMO pre-dispatch. Ranked by ne
 profit the LSTM and the seasonal-naive forecast are level and AEMO pre-dispatch is
 slightly behind, with all three within \$1.27 of one another.
 
+\subsubsection{Sensitivity to forecast error}
+\label{sec:results:mpc:noise}
+
+The real forecasters give three points, each with a different kind of error. To measure
+how dispatch value depends on the \emph{size} of the error alone, the MPC study was
+repeated with perfect foresight corrupted by synthetic error of controlled magnitude,
+applied to one input at a time while the other was kept perfect. A forecast issued at
+interval $t$ for lead $h = 0, \dots, 287$ is
+\begin{equation}
+    \hat{x}_{t+h} = x_{t+h} + \sigma_{\max} \sqrt{\tfrac{h+1}{288}}\, e_h,
+    \qquad e_h = \rho\, e_{h-1} + \sqrt{1-\rho^2}\, \varepsilon_h, \quad \varepsilon_h \sim \mathcal{N}(0,1),
+    \label{eq:noise}
+\end{equation}
+with $e_0 \sim \mathcal{N}(0,1)$ and $\rho = 0.95$ per five-minute step, so that errors
+persist for about 1.5~hours rather than alternating between intervals, and grow with lead
+time to $\sigma_{\max}$ at 24~hours. For price, $x = \sinh^{-1}(R/100)$, the transform
+used by the LSTM, and the forecast is returned as $100 \sinh(\hat{x})$; the error is
+therefore approximately additive near zero and proportional during spikes. For net
+local power, $x = G - A$ in kW. A new error path is drawn at every re-plan, and the
+current-interval price remains the actual price. Independent errors in each interval
+were rejected because the MILP would trade on the spurious five-minute spreads they
+create. One realisation is used per level; each run averages 8928 independent draws.
+
+\begin{table}[htbp]
+    \centering
+    \small
+    \caption{Dispatch value under synthetic forecast error, household scenario, $J=4$,
+    January 2025. Each run perturbs one input; the other is perfect. Value lost is
+    measured against perfect foresight on the same loop.}
+    \label{tab:mpc:noise}
+    \begin{tabular}{@{}llrrrrrr@{}}
+        \toprule
+        Input & $\sigma_{\max}$ & MAE & \shortstack{Profit\\at meter (\$)} &
+        \shortstack{Rainflow\\deg.\ (\$)} & \shortstack{Net\\profit (\$)} &
+        \shortstack{Value\\lost (\$)} & EFC \\
+        \midrule
+        None      & --      & --           & 43.31 & 15.07 & 28.24 & --    & 9.3 \\
+        \midrule
+        Price     & 0.25    & 19.8 \$/MWh  & 43.68 & 15.58 & 28.10 & 0.14  & 9.6 \\
+                  & 0.5     & 41.1 \$/MWh  & 44.67 & 16.92 & 27.75 & 0.49  & 10.4 \\
+                  & 1       & 95.9 \$/MWh  & 45.16 & 20.77 & 24.38 & 3.86  & 12.7 \\
+                  & 2       & 388.3 \$/MWh & 34.29 & 33.80 & 0.50  & 27.74 & 23.1 \\
+        \midrule
+        Net local & 0.5 kW  & 0.27 kW      & 43.11 & 15.20 & 27.92 & 0.32  & 9.4 \\
+                  & 1 kW    & 0.53 kW      & 42.88 & 15.23 & 27.64 & 0.60  & 9.5 \\
+                  & 2 kW    & 1.06 kW      & 42.37 & 15.33 & 27.04 & 1.20  & 9.6 \\
+                  & 3 kW    & 1.60 kW      & 42.01 & 15.42 & 26.58 & 1.66  & 9.7 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{images/forecast_noise_sensitivity.png}
+    \caption{Value lost against forecast MAE. The curve is synthetic error on perfect
+    foresight (Table~\ref{tab:mpc:noise}); the points are the forecasters of
+    Table~\ref{tab:mpc:headline}, each measured against the reference that isolates its
+    input: the price forecasters against the perfect-price case, the seven-day household
+    profile against perfect foresight.}
+    \label{fig:mpc:noise}
+\end{figure}
+
+% STALE (2026-09-30): Table mpc:noise is on the corrected (interval-end) meter data. The
+% real-forecaster points in Fig. mpc:noise and the comparisons below use
+% Table mpc:headline, which is still from the old join; re-run forecast_trading.py.
+Perfect foresight on the corrected data nets \$28.24, which again matches the 48-hour
+rolling solve of Table~\ref{tab:milp:household}.
+
+\paragraph{Unbiased error is cheap until it is large.}
+Price error with an MAE of \$41/MWh, comparable to the LSTM, costs \$0.49, and an MAE
+of \$96/MWh costs \$3.86. Only at an MAE of \$388/MWh is the value almost eliminated.
+Household error costs about \$1 per kW of MAE over the range tested.
+
+\paragraph{Price error costs through cycling, not through worse trades.}
+Up to $\sigma_{\max} = 1$ the profit at the meter \emph{rises}, from \$43.31 to
+\$45.16. The controller acts on spreads that the error has widened, cycling 12.7
+equivalent full cycles instead of 9.3, and the additional rainflow degradation of
+\$5.70 exceeds the additional revenue. The degradation cost in the objective restrains
+this, but it cannot distinguish a real spread from a forecast one.
+
+\paragraph{The real forecasters lose far more than their MAE predicts.}
+Figure~\ref{fig:mpc:noise} places the real forecasters on the synthetic curve. The
+seven-day household profile has an MAE of 1.15~kW, at which unbiased error would cost
+about \$1.28; it costs \$9.10. The LSTM and seasonal-naive price forecasts, at \$45 and
+\$61/MWh, would cost about \$0.71 and \$1.74; each costs about \$3.70. The loss is
+therefore driven by the structure of the error rather than its size. The synthetic error
+is unbiased and independent of the data, so it averages out over the month. A real
+forecast is wrong in a way that depends on the day, for example a seven-day profile on a
+cloudy day or a price forecast that flattens the daily shape, and such errors move the
+whole schedule in the same direction. Which features of the error are responsible has
+not been isolated here. AEMO
+pre-dispatch sits below the curve, because most of its MAE comes from forecast spikes
+that did not occur, and these are corrected by the observed current-interval price
+before they affect dispatch. MAE is therefore a poor guide to the dispatch value of a
+forecast in either direction, consistent with the loose relation between accuracy and
+value found above.
+
 \subsubsection{Implications}
 \label{sec:results:mpc:implications}
 
@@ -668,7 +765,8 @@ result is a qualitative comparison only.
     \item Repeat the forecasting study with the current-interval price forecast rather
     than observed, to measure the value of that assumption.
     \item Improve the forecast of net local power, which is the largest recoverable
-    loss.
+    loss. Section~\ref{sec:results:mpc:noise} shows that its loss is not explained by its
+    MAE, so candidate forecasts should be compared by dispatch value, not accuracy.
     \item Replace the provisional replacement cost and stress function and repeat all
     three studies, since the sign of the retail result may change.
     \item Repeat the forecasting study under a 5~kW and a 10~kW export limit, with solar

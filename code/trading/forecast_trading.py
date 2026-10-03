@@ -9,6 +9,7 @@ Run from the trading/ directory:
     python forecast_trading.py --quick               # perfect + naive, 2 days
     python forecast_trading.py --forecasters perfect perfect_price naive aemo lstm --days 7
     python forecast_trading.py --reuse             # only forecasters without a results/*.json are solved
+    python forecast_trading.py --noise-study       # perfect foresight plus synthetic price / net-local noise
 
 Companion to milp_trading.py (perfect-foresight rolling horizon).
 """
@@ -36,6 +37,10 @@ PLOTS_DIR = "plots"
 N_SEGMENTS = 4
 HORIZON_HOURS = 24.0
 ALL_FORECASTERS = ("perfect", "perfect_price", "naive", "aemo", "lstm")
+# Noise sensitivity study (forecasting/noisy.py): sigma_max at 24 h ahead, price in asinh(R/100) units, net-local in kW.
+NOISE_PRICE_SIGMAS = (0.25, 0.5, 1.0, 2.0)
+NOISE_NET_SIGMAS_KW = (0.5, 1.0, 2.0, 3.0)
+NOISE_STUDY = ("perfect", *(f"noise_price_{s:g}" for s in NOISE_PRICE_SIGMAS), *(f"noise_net_{s:g}" for s in NOISE_NET_SIGMAS_KW))
 
 
 def make_forecaster(name: str, frame, household: bool = True):
@@ -54,6 +59,12 @@ def make_forecaster(name: str, frame, household: bool = True):
     if name == "lstm":
         from forecasting.lstm import LstmPriceForecaster
         return LstmPriceForecaster(frame)
+    if name.startswith(("noise_price_", "noise_net_")):
+        from forecasting.noisy import NoisyForecaster
+        sigma = float(name.rsplit("_", 1)[1])
+        if name.startswith("noise_price_"):
+            return NoisyForecaster(frame, price_sigma=sigma, name=name)
+        return NoisyForecaster(frame, net_sigma_kw=sigma, name=name)
     raise ValueError(f"unknown forecaster {name!r}; choose from {ALL_FORECASTERS}")
 
 
@@ -139,7 +150,8 @@ def load_saved_row(name: str, household: bool, n_days) -> dict | None:
 
 
 def run_study(forecasters=ALL_FORECASTERS, household=True, n_days=None, solver_name="HiGHS",
-              plot=True, verbose=True, parallel=True, reuse=False, per_run_plots=False) -> pd.DataFrame:
+              plot=True, verbose=True, parallel=True, reuse=False, per_run_plots=False,
+              summary_name="forecast_summary") -> pd.DataFrame:
     """
     reuse=True picks up results/<label>.json from earlier runs instead of re-solving those forecasters.
     plot draws the study page; per_run_plots also draws a page per forecaster.
@@ -166,7 +178,7 @@ def run_study(forecasters=ALL_FORECASTERS, household=True, n_days=None, solver_n
     summary["life_loss_pct"] = 100 * summary["life_loss_fraction"]
     os.makedirs(RESULTS_DIR, exist_ok=True)
     suffix = f"_{n_days}d" if n_days else ""
-    path = f"{RESULTS_DIR}/forecast_summary{suffix}.csv"
+    path = f"{RESULTS_DIR}/{summary_name}{suffix}.csv"
     summary.to_csv(path, index=False)
     cols = ["forecaster", "net_profit_ex_degradation", "degradation_cost_rainflow", "net_profit_incl_degradation",
             "profit_gap_to_perfect", "profit_pct_of_perfect", "life_loss_pct", "equivalent_full_cycles",
@@ -203,6 +215,71 @@ def plot_study(summary: pd.DataFrame, forecasters=ALL_FORECASTERS, household: bo
                         output_path=f"{PLOTS_DIR}/forecast_study{suffix}.html", day=day)
 
 
+def lead_time_errors(frame, names, horizon: int = 288) -> pd.DataFrame:
+    """
+    Price and net-local MAE at every 5-min lead (step 0 .. horizon-1) over the test month,
+    forecasts issued every half hour; step-0 price is the actual, as in the MPC loop.
+    """
+    t0, T = frame.test_start, frame.n
+    issues = list(range(t0, T - horizon + 1, 6))
+    price = np.stack([frame.rrp[t : t + horizon] for t in issues])
+    net = np.stack([frame.net_local[t : t + horizon] for t in issues])
+    rows = []
+    for name in names:
+        fc = make_forecaster(name, frame)
+        pf = np.stack([np.asarray(fc.price(t, horizon), dtype=float) for t in issues])
+        pf[:, 0] = price[:, 0]
+        nf = np.stack([np.asarray(fc.net_local(t, horizon), dtype=float) for t in issues])
+        rows.append(pd.DataFrame({"forecaster": name, "step": np.arange(horizon),
+                                  "price_mae": np.abs(pf - price).mean(axis=0), "net_mae": np.abs(nf - net).mean(axis=0)}))
+    return pd.concat(rows, ignore_index=True)
+
+
+NOISE_EXAMPLE_ISSUE = "2025-01-15 04:00"   # ten hours before the 17,500 $/MWh spike
+
+
+def example_forecasts(frame, names, issue_time: str = NOISE_EXAMPLE_ISSUE, horizon: int = 288) -> dict:
+    """The 24 h price and net-local forecasts each run was given at one issue time, with the actuals."""
+    t = int(np.searchsorted(frame.start_times.values, np.datetime64(pd.Timestamp(issue_time))))
+    h = min(horizon, frame.n - t)
+    out = {"issue": pd.Timestamp(issue_time), "time": frame.start_times[t : t + h],
+           "actual_price": frame.rrp[t : t + h], "actual_net": frame.net_local[t : t + h], "price": {}, "net": {}}
+    for name in names:
+        fc = make_forecaster(name, frame)
+        pf = np.asarray(fc.price(t, h), dtype=float)
+        pf[0] = frame.rrp[t]                                   # step-0 actual, as in the MPC loop
+        out["price"][name] = pf
+        out["net"][name] = np.asarray(fc.net_local(t, h), dtype=float)
+    return out
+
+
+def plot_noise(suffix: str = "") -> None:
+    """
+    Error-versus-value page from the noise study (results/forecast_noise_summary.csv) and the
+    real forecasters (results/forecast_summary.csv). Lead-time errors are cached in
+    results/forecast_error_by_lead.csv; delete it to recompute.
+    """
+    from plotting.noise_study_plot import plot_noise_study
+
+    noise = pd.read_csv(f"{RESULTS_DIR}/forecast_noise_summary{suffix}.csv")
+    real_path = f"{RESULTS_DIR}/forecast_summary{suffix}.csv"
+    real = pd.read_csv(real_path) if os.path.exists(real_path) else None
+    names = list(noise["forecaster"]) + ([f for f in real["forecaster"] if f != "perfect"] if real is not None else [])
+    lead_path = f"{RESULTS_DIR}/forecast_error_by_lead{suffix}.csv"
+    lead = pd.read_csv(lead_path) if os.path.exists(lead_path) else None
+    missing = [n for n in names if lead is None or n not in set(lead["forecaster"])]
+    frame = load_frame(n_test_days=float(suffix[1:-1]) if suffix else None)
+    example = example_forecasts(frame, names) if not suffix else None
+    if missing:
+        lead = pd.concat([lead, lead_time_errors(frame, missing)], ignore_index=True) if lead is not None else lead_time_errors(frame, missing)
+        lead.to_csv(lead_path, index=False)
+    results = {n: pd.read_csv(f"{RESULTS_DIR}/mpc_household_J{N_SEGMENTS}_{n}.csv") for n in names
+               if os.path.exists(f"{RESULTS_DIR}/mpc_household_J{N_SEGMENTS}_{n}.csv")}
+    os.makedirs(PLOTS_DIR, exist_ok=True)
+    plot_noise_study(noise, real, results, lead, title=f"Forecast error and trading value JAN25{suffix}",
+                     output_path=f"{PLOTS_DIR}/forecast_noise_study{suffix}.html", r_cell=R_CELL, example=example)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--forecasters", nargs="+", default=list(ALL_FORECASTERS))
@@ -216,7 +293,17 @@ def main():
     ap.add_argument("--reuse", action="store_true", help="reuse results/*.json from earlier runs where present")
     ap.add_argument("--plot-only", action="store_true", help="redraw the plots from results/ without solving")
     ap.add_argument("--per-run", action="store_true", help="also draw a page for every forecaster's run (default: study page only)")
+    ap.add_argument("--noise-study", action="store_true",
+                    help="perfect foresight plus synthetic noise on price or net-local; writes results/forecast_noise_summary.csv")
     a = ap.parse_args()
+    if a.noise_study:
+        suffix = f"_{a.days}d" if a.days else ""
+        if not a.plot_only:
+            run_study(NOISE_STUDY, household=not a.bess_only, n_days=a.days, solver_name=a.solver, plot=False,
+                      verbose=not a.quiet, parallel=not a.serial, reuse=a.reuse, summary_name="forecast_noise_summary")
+        if not a.no_plot:
+            plot_noise(suffix)
+        return
     forecasters = ["perfect", "naive"] if a.quick else a.forecasters
     n_days = 2 if a.quick else a.days
     if a.plot_only:
