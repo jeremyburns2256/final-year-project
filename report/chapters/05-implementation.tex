@@ -1,0 +1,16 @@
+% !TEX root = ../main.tex
+\chapter{Implementation}
+
+
+\section{Framework}
+
+\subsection{MILP Optimisiation}
+Mixed-integer linear programming was used to...
+Optimised over a 48 hour window and committed 24 hours. The model is optimised over 48 hours to prevent it discharging the battery completely at the end of the 24 hour window that is committed
+Household modeled is a single dwelling with rooftop solar. Its meter records import and export only, so the mo0del observes the net local power $G_n - A_n$ never $G_n$ and $A_n$ separately
+
+\subsection{Battery Degredation}
+
+
+\subsection{LSTM Models}
+LSTM models were used for prediction of both wholesale price and net residential loads..

@@ -201,3 +201,50 @@ survives as forecasts get worse, as a curve rather than the four real forecaster
   MPC, step-0 actual price. The perfect-foresight run is re-solved as sigma = 0.
 - Run: `python forecast_trading.py --noise-study` (9 runs in parallel, ~40 min).
   Output: `results/forecast_noise_summary.csv`, `results/mpc_household_J4_noise_*.csv/.json`.
+
+## Real price forecasters with the actual load (2026-10-01)
+
+- `naive_perfect_net`, `aemo_perfect_net`, `lstm_perfect_net` (`make_forecaster`, any `<name>_perfect_net`):
+  the real price forecast with the actual net-local, so the real forecasters can be measured
+  against perfect foresight on the same footing as the `noise_price_*` runs.
+- Main study re-run on the corrected (2026-09-21 re-stamp) data together with these three:
+  `python forecast_trading.py --forecasters perfect perfect_price naive aemo lstm naive_perfect_net aemo_perfect_net lstm_perfect_net --no-plot`
+  (8 runs in parallel, 76 min), then `--plot-only` and `--noise-study --plot-only`.
+- Value lost to the price forecast, $ over JAN25 (perfect 28.24, perfect price 19.09):
+  with the actual load, against perfect: naive 5.24, AEMO 5.53, LSTM 5.02;
+  with the 7-day profile, against perfect price: naive 3.77, AEMO 5.00, LSTM 3.53.
+  Price error costs more when the load is known: the two errors are sub-additive
+  (LSTM 5.02 + profile 9.15 = 14.17 against a joint gap of 12.68).
+
+## Load model: LSTM after Kong et al. (2026-10-03)
+
+- **Why now.** "One house for two months cannot train an LSTM" (above) no longer holds:
+  `data/import.csv` / `data/export.csv` hold 20 Feb 2024 - 20 Feb 2025 at 5 min, identical to
+  the re-stamped DEC24 / JAN25 files where they overlap. Kong et al. (2019, IEEE TSG) train a
+  per-household LSTM on about 64 days.
+- **Kept from Kong:** 2 stacked LSTM layers x 20 units; inputs per half hour are the load
+  (min-max scaled) plus one-hot slot of day, one-hot day of week and a holiday flag; Adam defaults.
+- **Changed:** the target is net-local (signed), not consumption; the head has 48 outputs
+  (direct 24 h, as the price LSTM) because Kong forecast only the next half hour; look-back is
+  48 half hours (Kong 2-12); MSE loss (Kong does not state one); early stopping on validation
+  MSE, patience 20, in place of a fixed 150 epochs; MAE in kW in place of MAPE.
+- **Split:** train to 31 Oct 2024 (11 857 windows), validate Nov-Dec 2024, test JAN25.
+- **Code:** `forecasting/load_lstm.py`, `forecasting/train_load_lstm.py`, `models/load_lstm.pt`.
+  Forecasters: `lstm_load` (actual price, LSTM net-local; compare with `perfect_price`) and
+  any `<name>_lstm_net` (that price forecaster with the LSTM net-local).
+- **Accuracy on JAN25** (5-min resolution, 24 h forecasts issued every half hour, one seed,
+  best epoch 35 of 55):
+
+  | | MAE kW | RMSE kW | bias kW | MAE first hour | MAE at 24 h |
+  |---|---|---|---|---|---|
+  | 7-day profile | 1.154 | 1.768 | 0.103 | 1.170 | 1.134 |
+  | LSTM | 1.047 | 1.544 | 0.002 | 0.929 | 1.064 |
+
+- **Dispatch value (2026-10-03, JAN25, J = 4, R_cell = 12 000, actual price):** `lstm_load` earns
+  20.17 against 19.09 for `perfect_price` (7-day profile) and 28.24 for perfect. The 9% lower
+  MAE recovers 1.08 of the 9.15 lost to the load forecast (12%); 8.07 remains. Revenue before
+  degradation rises 33.76 -> 33.96 and rainflow degradation falls 14.68 -> 13.79, so most of
+  the gain is less cycling, not more revenue. One seed, one month.
+  `python forecast_trading.py --forecasters perfect perfect_price naive aemo lstm naive_perfect_net aemo_perfect_net lstm_perfect_net lstm_load --reuse --no-plot`
+  (`--reuse` solves only what has no saved result, 29 min for `lstm_load`).
+- **Plot:** `python -m plotting.load_forecast_plot` writes `plots/load_forecast.html`.

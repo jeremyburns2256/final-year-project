@@ -19,8 +19,10 @@ sensitivity), built from the noise study and the real-forecaster study:
 Synthetic runs are greys (darker = less noise, ink = perfect foresight); colour
 always means a real forecaster (plotting/theme.py). Each run is measured against
 the reference that isolates its input: noise runs against perfect foresight, the
-real price forecasters against perfect price with the 7-day load profile, and the
-load profile against perfect foresight.
+real price forecasters given the actual load (<name>_perfect_net) against perfect
+foresight, the same forecasters given the 7-day load profile against perfect
+price with that profile, and the household forecasters (the 7-day profile and the
+LSTM load forecast, both with the actual price) against perfect foresight.
 """
 
 from __future__ import annotations
@@ -38,14 +40,16 @@ PROFIT = "net_profit_incl_degradation"
 PROFILE = "perfect_price"            # its net-local errors are the 7-day profile's
 PROFILE_COLOUR = T.YELLOW
 PROFILE_LABEL = "7-day load profile"
+LSTM_LOAD = "lstm_load"              # actual price, LSTM net-local (forecasting/load_lstm.py)
+REAL_LOAD = (PROFILE, LSTM_LOAD)     # household forecasters, both run with the actual price
+LOAD_COLOUR = {PROFILE: PROFILE_COLOUR, LSTM_LOAD: T.ORANGE}   # household panels carry no price forecaster, so orange is free
+LOAD_LABEL = {PROFILE: PROFILE_LABEL, LSTM_LOAD: "LSTM load forecast"}
 REAL_PRICE = ("naive", "aemo", "lstm")
+PERFECT_NET_SUFFIX = "_perfect_net"  # a real price forecaster given the actual net-local (forecast_trading.make_forecaster)
+REAL_PRICE_NET = tuple(f + PERFECT_NET_SUFFIX for f in REAL_PRICE)
 GREYS = ["#3a3936", "#5f5e59", "#85847d", "#aaa9a1"]   # sigma levels, low -> high noise
 BANDS = [(-np.inf, 0, "< 0"), (0, 50, "0 – 50"), (50, 100, "50 – 100"), (100, 300, "100 – 300"),
          (300, 1000, "300 – 1000"), (1000, np.inf, "> 1000")]
-STALE_NOTE = ("Real-forecaster runs (naive, AEMO, LSTM, perfect price) are read from results/forecast_summary.csv and "
-              "results/mpc_household_J4_<name>.csv; until forecast_trading.py is re-run they predate the 2026-09-21 meter re-stamp, "
-              "so their value-lost figures are on the old join. Their forecast errors are recomputed here and are current.")
-
 
 # ---------------------------------------------------------------------------
 # Run bookkeeping
@@ -64,6 +68,10 @@ def _grey(names: list[str], name: str) -> str:
     return T.INK if name == "perfect" else GREYS[min(names.index(name), len(GREYS) - 1)]
 
 
+def _base(name: str) -> str:
+    return name.removesuffix(PERFECT_NET_SUFFIX)
+
+
 def _label(name: str) -> str:
     if name == "perfect":
         return "Perfect foresight"
@@ -71,9 +79,19 @@ def _label(name: str) -> str:
         return f"Price noise σ_max = {_sigma(name):g}"
     if name.startswith("noise_net_"):
         return f"Load noise σ_max = {_sigma(name):g} kW"
-    if name == PROFILE:
-        return PROFILE_LABEL
-    return T.FORECASTER_LABEL.get(name, name)
+    if name in LOAD_LABEL:
+        return LOAD_LABEL[name]
+    return T.FORECASTER_LABEL.get(_base(name), name)
+
+
+def _colour(name: str) -> str:
+    """Colour of a real forecaster: household forecasters by LOAD_COLOUR, price forecasters by the theme."""
+    return LOAD_COLOUR[name] if name in LOAD_COLOUR else T.FORECASTER_COLOUR[_base(name)]
+
+
+def _run_label(name: str) -> str:
+    """Label where both runs of a real price forecaster appear: plain = actual load, the other names the profile."""
+    return f"{_label(name)} + {PROFILE_LABEL}" if name in REAL_PRICE else _label(name)
 
 
 def _lost(noise: pd.DataFrame, real: pd.DataFrame | None) -> dict[str, float]:
@@ -88,8 +106,10 @@ def _lost(noise: pd.DataFrame, real: pd.DataFrame | None) -> dict[str, float]:
             for f in REAL_PRICE:
                 if f in r.index:
                     out[f] = float(r[PROFILE] - r[f])
-            if "perfect" in r.index:
-                out[PROFILE] = float(r["perfect"] - r[PROFILE])
+        if "perfect" in r.index:
+            for f in (*REAL_LOAD, *REAL_PRICE_NET):
+                if f in r.index:
+                    out[f] = float(r["perfect"] - r[f])
     return out
 
 
@@ -115,13 +135,18 @@ GUIDE = {
                                   "filled with the seasonal naive beyond the end of the run."),
     "lstm": ("LSTM", "A 2-layer LSTM over the previous 7 days of price, system demand and calendar features, predicting the next 48 "
                      "half-hour prices in asinh(price/100) with Huber loss. Trained on 2015–2023, validated on 2024."),
-    PROFILE: (PROFILE_LABEL, "Net-local power forecast as the mean of the same 5-minute slot over the previous 7 days. Every real "
-                             "price forecaster uses it for the household, so their value lost is measured against perfect price "
-                             "with this profile and is the cost of the price forecast alone."),
+    PROFILE: (PROFILE_LABEL, "Net-local power forecast as the mean of the same 5-minute slot over the previous 7 days. Each real "
+                             "price forecaster is run twice: with the actual load, measured against perfect foresight like "
+                             "the synthetic price runs, and with this profile, measured against perfect price with this "
+                             "profile. Either way the difference is the cost of the price forecast alone."),
+    LSTM_LOAD: (LOAD_LABEL[LSTM_LOAD], "A 2-layer, 20-unit LSTM after Kong et al. (2019) over the previous 24 h of half-hourly net-local "
+                                       "power with one-hot time of day, day of week and a holiday flag, predicting the next 48 half hours. "
+                                       "Trained on 20 Feb – 31 Oct 2024, validated on Nov – Dec 2024. Run with the actual price and "
+                                       "measured against perfect foresight, as the 7-day profile is."),
 }
 
 
-def _forecast_guide(price_n, load_n, real_names, have_profile: bool):
+def _forecast_guide(price_n, load_n, real_names, real_load):
     """Swatch, name and one-paragraph description of each kind of forecast on the page."""
     levels = lambda names: ", ".join(f"{_sigma(n):g}" for n in names)
     rows = []
@@ -130,8 +155,7 @@ def _forecast_guide(price_n, load_n, real_names, have_profile: bool):
     rows += [(T.FORECASTER_COLOUR[n], "Price", *GUIDE[n]) for n in real_names]
     if load_n:
         rows.append((GREYS[1], "Household", GUIDE["noise_net"][0], GUIDE["noise_net"][1].format(levels=levels(load_n))))
-    if have_profile:
-        rows.append((PROFILE_COLOUR, "Household", *GUIDE[PROFILE]))
+    rows += [(LOAD_COLOUR[n], "Household", *GUIDE[n]) for n in real_load]
     td = f'padding:6px 14px 6px 0;vertical-align:top;border-bottom:1px solid {T.GRID}'
     body = "".join(
         f'<tr><td style="{td};white-space:nowrap;color:{T.MUTED}">{inp}</td>'
@@ -156,14 +180,15 @@ def _lost_bars(noise: pd.DataFrame, real: pd.DataFrame | None, lost: dict, names
     col, unit, fmt = ("price_mae", "$/MWh", ".0f") if kind == "price" else ("net_local_mae_kw", "kW", ".2f")
     mae = pd.concat([noise.set_index("forecaster")[col]] + ([real.set_index("forecaster")[col]] if real is not None else []))
     mae = mae[~mae.index.duplicated()]
-    labels = [_label(n) for n in names]
+    labels = [_run_label(n) for n in names]
     src = ColumnDataSource(dict(
         label=labels, value=[lost[n] for n in names],
-        colour=[_grey(noise_names, n) if n in noise_names else (PROFILE_COLOUR if n == PROFILE else T.FORECASTER_COLOUR[n]) for n in names],
+        colour=[_grey(noise_names, n) if n in noise_names else _colour(n) for n in names],
+        alpha=[0.45 if n in REAL_PRICE else 1.0 for n in names],
         text=[f"${lost[n]:.2f}   (MAE {mae[n]:{fmt}} {unit}, against {_reference(n)})" for n in names],
     ))
     p = T.make_figure(height=60 + 34 * len(names), title=title, y_range=FactorRange(factors=labels[::-1]), tools="save")
-    r = p.hbar(y="label", right="value", height=0.55, source=src, color="colour")
+    r = p.hbar(y="label", right="value", height=0.55, source=src, color="colour", alpha="alpha")
     p.add_layout(LabelSet(x="value", y="label", text="text", source=src, x_offset=8, text_baseline="middle",
                           text_font=T.FONT, text_font_size="11px", text_color=T.INK2))
     p.add_tools(HoverTool(renderers=[r], tooltips=[("", "@label"), ("value lost", "$@value{0.00}")]))
@@ -196,8 +221,8 @@ def _example_panel(ex: dict, kind: str, names: list[str], noise_names: list[str]
             continue
         if n in noise_names:
             style = {"color": _grey(noise_names, n), "line_width": 1.5}
-        elif n == PROFILE:
-            style = {"color": PROFILE_COLOUR, "line_width": 2.5}
+        elif n in REAL_LOAD:
+            style = {"color": LOAD_COLOUR[n], "line_width": 2.5}
         else:
             style = {"line_width": 2, **T.line_style(n)}
         p.line("time", f"{n}_y", source=src, legend_label=_label(n), **style)
@@ -234,10 +259,10 @@ def _lead_panel(lead: pd.DataFrame, names: list[str], col: str, title: str, y_la
             continue
         if bin_steps > 1:                                  # mean over each half hour, plotted at the bin centre
             d = d.assign(step=(d["step"] // bin_steps) * bin_steps + bin_steps / 2).groupby("step", as_index=False)[col].mean()
-        colour = _grey(noise_names, n) if n in noise_names or n == "perfect" else (PROFILE_COLOUR if n == PROFILE else T.FORECASTER_COLOUR[n])
-        dash = "solid" if n in noise_names or n == PROFILE else T.FORECASTER_DASH.get(n, "solid")
+        colour = _grey(noise_names, n) if n in noise_names or n == "perfect" else _colour(n)
+        dash = "solid" if n in noise_names or n in REAL_LOAD else T.FORECASTER_DASH.get(n, "solid")
         src = ColumnDataSource(dict(h=d["step"].to_numpy() * INTERVAL_HOURS, y=d[col].to_numpy(), name=[_label(n)] * len(d)))
-        rends.append(p.line("h", "y", source=src, color=colour, line_dash=dash, line_width=2.5 if n == PROFILE else 2,
+        rends.append(p.line("h", "y", source=src, color=colour, line_dash=dash, line_width=2.5 if n in REAL_LOAD else 2,
                             legend_label=_label(n)))
     p.add_tools(HoverTool(renderers=rends, tooltips=[("", "@name"), ("lead", "@h{0.00} h"), ("MAE", "@y{0.00}")], line_policy="nearest"))
     p.xaxis.axis_label = "Lead time (hours ahead of the interval being dispatched)"
@@ -255,7 +280,8 @@ def _lead_panel(lead: pd.DataFrame, names: list[str], col: str, title: str, y_la
 # 2. Value lost against error at matched lead times
 # ---------------------------------------------------------------------------
 
-LABEL_SIDE = {"lstm": ("right", -12, 0), "naive": ("left", 12, 0), "aemo": ("right", 6, 16), PROFILE: ("right", -12, 0)}   # align, dx, dy
+LABEL_SIDE = {"lstm": ("right", -12, 0), "naive": ("left", 12, 0), "aemo": ("right", 6, 16), PROFILE: ("right", -12, 0),
+              LSTM_LOAD: ("left", 12, 0)}   # align, dx, dy
 
 
 def _measure(lead: pd.DataFrame, name: str, col: str, how) -> float:
@@ -276,14 +302,13 @@ def _value_panel(lead, lost, noise_names, real_names, col, how, title, x_label, 
     r = p.scatter("x", "y", source=src, size=9, color="colour", line_color=T.SURFACE, line_width=2)
     hover = [r]
     for n in real_names:
-        x, y = _measure(lead, n, col, how), lost.get(n, np.nan)
+        x, y = _measure(lead, _base(n), col, how), lost.get(n, np.nan)   # same price forecast, so the base run's errors
         if np.isnan(x) or np.isnan(y):
             continue
-        colour = PROFILE_COLOUR if n == PROFILE else T.FORECASTER_COLOUR[n]
         s = ColumnDataSource(dict(x=[x], y=[y], name=[_label(n)]))
-        hover.append(p.scatter("x", "y", source=s, size=14, marker="diamond", color=colour,
+        hover.append(p.scatter("x", "y", source=s, size=14, marker="diamond", color=_colour(n),
                                line_color=T.INK2 if n == PROFILE else T.SURFACE, line_width=1 if n == PROFILE else 2))
-        align, dx, dy = LABEL_SIDE.get(n, ("left", 12, 0))
+        align, dx, dy = LABEL_SIDE.get(_base(n), ("left", 12, 0))
         T.value_label(p, x, y, _label(n), x_offset=dx, y_offset=dy, align=align, baseline="middle")
         xs.append(x)
     p.add_tools(HoverTool(renderers=hover, tooltips=[("", "@name"), ("error", "@x{0.00}"), ("value lost", "$@y{0.00}")]))
@@ -403,7 +428,9 @@ def _short(name: str) -> str:
         return f"Price σ {_sigma(name):g}"
     if name.startswith("noise_net_"):
         return f"Load σ {_sigma(name):g} kW"
-    return {"naive": "Naive*", "aemo": "AEMO*", "lstm": "LSTM*", PROFILE: "Profile*"}.get(name, name)
+    if name in REAL_PRICE:
+        return f"{_label(name)} + profile"
+    return {PROFILE: "Profile", LSTM_LOAD: "LSTM load"}.get(name, _label(name))
 
 
 def _band_table(results, pairs, scales):
@@ -421,7 +448,7 @@ def _band_table(results, pairs, scales):
     df = pd.concat([df, pd.DataFrame([tot])], ignore_index=True)
     cols = [("band", "RRP band ($/MWh)", None), ("intervals", "Intervals", "0")] + \
            [(run, _short(run), "0.00") for run, _ in pairs if run in df]
-    return T.summary_table(df, cols, height=48 + 28 * len(df), text_width=120, number_width=86)
+    return T.summary_table(df, cols, height=48 + 28 * len(df), text_width=120, number_width=78)
 
 
 # ---------------------------------------------------------------------------
@@ -442,7 +469,7 @@ def _run_table(noise: pd.DataFrame, real: pd.DataFrame | None, lost: dict) -> pd
                                                 ignore_index=True)
     rows = rows.assign(value_lost=rows["forecaster"].map(lost), reference=rows["forecaster"].map(_reference))
     rows.loc[rows["forecaster"] == "perfect", "reference"] = "–"
-    rows["forecaster"] = [_label(n) + ("*" if n in REAL_PRICE or n == PROFILE else "") for n in rows["forecaster"]]
+    rows["forecaster"] = [_run_label(n) for n in rows["forecaster"]]
     return rows
 
 
@@ -459,11 +486,14 @@ def plot_noise_study(noise: pd.DataFrame, real: pd.DataFrame | None, results: di
     load_n = _noise_names(noise, "noise_net_")
     lost = _lost(noise, real)
     have_real = [n for n in REAL_PRICE if n in lost]
+    have_net = [n for n in REAL_PRICE_NET if n in lost]
+    have_load = [n for n in REAL_LOAD if n in lost]
+    real_bars = [n for f in REAL_PRICE for n in (f + PERFECT_NET_SUFFIX, f) if n in lost]
     scales = _deg_scales(noise, real)
     table = _run_table(noise, real, lost)
 
-    y_price = max(lost[n] for n in price_n + have_real) * 1.12
-    y_load = max([lost[n] for n in load_n] + [lost.get(PROFILE, 0.0)]) * 1.12
+    y_price = max(lost[n] for n in price_n + real_bars) * 1.12
+    y_load = max(lost[n] for n in load_n + have_load) * 1.12
     price_measures = [(1, "Next interval (5 min ahead)"), (12, "1 h ahead"), ("mean", "24 h average")]
     load_measures = [(0, "This interval (committed)"), (12, "1 h ahead"), ("mean", "24 h average")]
 
@@ -475,13 +505,15 @@ def plot_noise_study(noise: pd.DataFrame, real: pd.DataFrame | None, results: di
                   "Every run is the same controller given a different forecast of one input. The price of the interval being dispatched "
                   "is always the actual price (AEMO publishes it before the interval starts); everything further ahead is forecast. "
                   "The household's net-local power is forecast for every interval, including the current one."),
-        _forecast_guide(price_n, load_n, have_real, PROFILE in lost),
+        _forecast_guide(price_n, load_n, have_real, have_load),
         T.section("Value lost by run",
-                  "Net profit given up against the reference that isolates each forecast: perfect foresight for the synthetic runs and "
-                  "for the 7-day load profile, perfect price with the 7-day load profile for the real price forecasters (so their bars "
-                  "are the cost of the price forecast alone). Grey bars are synthetic noise, coloured bars are the real forecasters*."),
-        row(_lost_bars(noise, real, lost, price_n + have_real, price_n, "price", "Price forecast", y_price * 2.1),
-            _lost_bars(noise, real, lost, load_n + ([PROFILE] if PROFILE in lost else []), load_n, "net", "Household (net-local) forecast",
+                  "Net profit given up against the reference that isolates each forecast. Grey bars are synthetic noise and coloured bars "
+                  "are the real forecasters. Each real price forecaster has two bars: given the actual load and measured against perfect "
+                  "foresight, the same footing as the synthetic price runs (solid), and given the 7-day load profile and measured "
+                  "against perfect price with that profile (pale). Both are the cost of the price forecast alone; they differ where "
+                  "price error and load error interact."),
+        row(_lost_bars(noise, real, lost, price_n + real_bars, price_n, "price", "Price forecast", y_price * 2.1),
+            _lost_bars(noise, real, lost, load_n + have_load, load_n, "net", "Household (net-local) forecast",
                        y_load * 2.1),
             sizing_mode="stretch_width"),
     ]
@@ -489,7 +521,7 @@ def plot_noise_study(noise: pd.DataFrame, real: pd.DataFrame | None, results: di
         issue = example["issue"]
         p_syn = _example_panel(example, "price", price_n, price_n, f"Synthetic price forecasts issued {issue:%-d %b %H:%M}")
         p_real = _example_panel(example, "price", have_real, price_n, f"Real price forecasts issued {issue:%-d %b %H:%M}", x_range=p_syn.x_range)
-        p_net = _example_panel(example, "net", load_n + [PROFILE], load_n, f"Household forecasts issued {issue:%-d %b %H:%M}",
+        p_net = _example_panel(example, "net", load_n + have_load, load_n, f"Household forecasts issued {issue:%-d %b %H:%M}",
                                x_range=p_syn.x_range)
         children += [
             T.section("0. What the forecasts look like",
@@ -505,25 +537,29 @@ def plot_noise_study(noise: pd.DataFrame, real: pd.DataFrame | None, results: di
         T.section("1. How the error grows with lead time",
                   "The synthetic error is near zero for the interval being dispatched and grows to σ_max a day ahead. The real forecasters "
                   "are about as wrong in the next hour as tomorrow, and the 7-day load profile is already wrong by ~1.15 kW in the interval the "
-                  "controller commits. A single 24 h-average MAE therefore does not place the two kinds of forecast on a common scale."),
+                  "controller commits. The LSTM load forecast is better there (0.90 kW) and drifts up to the profile's error by a day "
+                  "ahead. A single 24 h-average MAE therefore does not place the two kinds of forecast on a common scale."),
         row(_lead_panel(lead, ["perfect"] + price_n + have_real, "price_mae", "Price forecast MAE by lead time", "$/MWh (log scale)",
                         price_n, log_y=True, first_step=1, bin_steps=6),
-            _lead_panel(lead, load_n + ([PROFILE] if PROFILE in set(lead["forecaster"]) else []), "net_mae",
+            _lead_panel(lead, load_n + [n for n in have_load if n in set(lead["forecaster"])], "net_mae",
                         "Net-local forecast MAE by lead time", "kW", load_n, log_y=False, first_step=0),
             sizing_mode="stretch_width"),
         T.section("2. Value lost against forecast error, measured at three lead times",
                   "Does a real forecaster lose more or less than random error of the same size? The grey curve is the synthetic runs: "
-                  "value lost (y) against forecast MAE (x). Each diamond is a real forecaster. A diamond above the curve loses more than "
+                  "value lost (y) against forecast MAE (x). Each diamond is a real forecaster; the price forecasters are the runs given "
+                  "the actual load, the same footing as the curve. A diamond above the curve loses more than "
                   "its error size explains; below, less. The y values are identical in all three panels of a row. Only x changes: the MAE "
                   "of the forecast for the next interval, for 1 h ahead, or averaged over the 24 h horizon. That matters because synthetic "
                   "error is small at short leads and large at long ones while real error is nearly flat (section 1), so the verdict depends "
-                  "on the lead time used to match them. Matched on the 24 h average, the LSTM, naive and load profile sit above the curve "
+                  "on the lead time used to match them. Matched on the 24 h average, the price LSTM, naive and both household forecasts sit above the curve "
                   "and AEMO below it. Matched at 1 h or at the next interval, every real price forecaster sits far below the curve: it is "
-                  "as wrong at short leads as the heaviest synthetic noise but loses a fraction as much. The load profile's error in the "
-                  "committed interval (1.18 kW) is beyond anything the synthetic runs reach (0.14 kW), so it cannot be placed on that curve."),
-        row(*[_value_panel(lead, lost, price_n, have_real, "price_mae", how, f"Price: {t}", "Price MAE ($/MWh)", y_price, i == 0)
+                  "as wrong at short leads as the heaviest synthetic noise but loses a fraction as much. The load profile and the LSTM load "
+                  "forecast are wrong by 1.18 and 0.90 kW in the committed interval, beyond anything the synthetic runs reach (0.14 kW), "
+                  "so neither can be placed on that curve. On the 24 h average they lose $9.15 and $8.07 where synthetic noise of the "
+                  "same size loses about $1.20."),
+        row(*[_value_panel(lead, lost, price_n, have_net or have_real, "price_mae", how, f"Price: {t}", "Price MAE ($/MWh)", y_price, i == 0)
               for i, (how, t) in enumerate(price_measures)], sizing_mode="stretch_width"),
-        row(*[_value_panel(lead, lost, load_n, [PROFILE] if PROFILE in lost else [], "net_mae", how, f"Household: {t}",
+        row(*[_value_panel(lead, lost, load_n, have_load, "net_mae", how, f"Household: {t}",
                            "Net-local MAE (kW)", y_load, i == 0)
               for i, (how, t) in enumerate(load_measures)], sizing_mode="stretch_width"),
         T.section("3. Mechanism: price error buys cycling",
@@ -536,15 +572,12 @@ def plot_noise_study(noise: pd.DataFrame, real: pd.DataFrame | None, results: di
                   "the interval. It separates missed spike revenue (> 1000) from ordinary arbitrage (the middle bands) and missed "
                   "negative-price charging (< 0). Aging cost per interval is the optimiser's piecewise-linear cost rescaled so each "
                   "run's month total equals its rainflow cost. A negative entry means the run did better than its reference in that band."),
-        _band_table(results, [(n, "perfect") for n in price_n + load_n] + [(n, PROFILE) for n in have_real]
-                    + ([(PROFILE, "perfect")] if PROFILE in lost else []), scales),
-        T.note("* old-join runs until forecast_trading.py is re-run; the price forecasters are measured against perfect price. "
-               "The Profile column compares the old-join perfect-price run with the corrected perfect-foresight run, so it totals "
-               "less than the old-join figure in the bar chart."),
+        _band_table(results, [(n, "perfect") for n in price_n + load_n + have_net] + [(n, PROFILE) for n in have_real]
+                    + [(n, "perfect") for n in have_load], scales),
         T.section("Table view"),
         T.summary_table(table, TABLE_COLUMNS, height=48 + 28 * len(table), text_width=190, number_width=112),
-        T.note("* old-join runs. Net profit = grid revenue − grid cost (incl. network tariff on imports) − rainflow life loss × R_cell. "
+        T.note("Net profit = grid revenue − grid cost (incl. network tariff on imports) − rainflow life loss × R_cell. "
                "MAE is over every 24 h forecast issued at half-hour boundaries in the test month; the price at step 0 is the actual. "
-               "One noise seed per level. " + STALE_NOTE),
+               "One noise seed per level."),
     ]
     T.save_page(children, title=title, output_path=output_path)

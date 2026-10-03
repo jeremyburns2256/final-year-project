@@ -35,3 +35,17 @@ code/trading/plots/mpc_*.html
 # All LaTeX output, including main.pdf, is written here by .latexmkrc.
 # Rebuild with: cd report && latexmk -pdf main.tex
 report/build/
+
+# LaTeX output written beside the source when the build bypasses .latexmkrc (e.g. an editor's own recipe)
+report/*.aux
+report/*.bbl
+report/*.blg
+report/*.fdb_latexmk
+report/*.fls
+report/*.lof
+report/*.log
+report/*.lot
+report/*.out
+report/*.synctex.gz
+report/*.toc
+report/main.pdf
