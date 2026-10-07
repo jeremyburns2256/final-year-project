@@ -27,7 +27,8 @@ from bokeh.models import ColumnDataSource, FactorRange, Label, LabelSet, Span
 
 from plotting import theme as T
 
-ORDER = ("perfect", "perfect_price", "naive", "aemo", "lstm")
+ORDER = ("perfect", "perfect_price", "lstm_load", "naive_perfect_net", "aemo_perfect_net", "lstm_perfect_net",
+         "naive", "aemo", "lstm", "lstm_lstm_net")
 INTERVALS_PER_HOUR = 12
 HORIZON = 288
 
@@ -46,6 +47,15 @@ def _real(names) -> list[str]:
     return [n for n in names if n not in T.PERFECT_PRICE]
 
 
+def _price_reference(name: str) -> str:
+    """The run with the same load input and the actual price: the gap to it is the cost of the price forecast."""
+    if name.endswith("_perfect_net"):
+        return "perfect"
+    if name.endswith("_lstm_net"):
+        return "lstm_load"
+    return "perfect_price"
+
+
 def _times(df: pd.DataFrame) -> pd.Series:
     return pd.to_datetime(df["time"], dayfirst=True)
 
@@ -58,16 +68,16 @@ def _profit_bars(summary: pd.DataFrame, names: list[str]):
     s = summary.set_index("forecaster").loc[names]
     labels = [T.FORECASTER_LABEL[n] for n in names]
     perfect = float(s.loc["perfect", "net_profit_incl_degradation"]) if "perfect" in s.index else np.nan
-    ref = float(s.loc["perfect_price", "net_profit_incl_degradation"]) if "perfect_price" in s.index else np.nan
 
     def caption(n, v):
         if n == "perfect" or np.isnan(perfect):
             return f"${v:.2f}"
-        if n == "perfect_price":
+        if n in T.PERFECT_PRICE:
             return f"${v:.2f}   (load forecast costs ${perfect - v:.2f})"
         parts = [f"{100 * v / perfect:.0f}% of perfect"]
-        if ref == ref:
-            parts.append(f"price forecast costs ${ref - v:.2f}")
+        ref = _price_reference(n)
+        if ref in s.index and ref != "perfect":
+            parts.append(f"price forecast costs ${float(s.loc[ref, 'net_profit_incl_degradation']) - v:.2f}")
         return f"${v:.2f}   ({', '.join(parts)})"
 
     src = ColumnDataSource(dict(
@@ -394,23 +404,24 @@ def plot_forecast_study(
     if real:
         best = max(real, key=lambda n: s.loc[n, "net_profit_incl_degradation"])
         v = float(s.loc[best, "net_profit_incl_degradation"])
-        ref = float(s.loc["perfect_price", "net_profit_incl_degradation"]) if "perfect_price" in s.index else np.nan
+        ref = _price_reference(best)
         sub = f"{100 * v / perfect:.0f}% of perfect" if perfect == perfect else ""
-        if ref == ref:
-            sub += f", price forecast costs ${ref - v:.2f}"
+        if ref in s.index:
+            sub += f", price forecast costs ${float(s.loc[ref, 'net_profit_incl_degradation']) - v:.2f}"
         tiles.append({"label": f"Best real forecaster: {T.FORECASTER_LABEL[best]}", "value": f"${v:.2f}", "sub": sub})
-    if "lstm" in s.index and "naive" in s.index:
-        r = float(s.loc["lstm", "price_mae"] / s.loc["naive", "price_mae"])
+    lstm, naive, aemo = (next((n for n in (k, k + "_perfect_net") if n in s.index), None) for k in ("lstm", "naive", "aemo"))
+    if lstm and naive:
+        r = float(s.loc[lstm, "price_mae"] / s.loc[naive, "price_mae"])
         tiles.append({"label": "LSTM price MAE relative to naive", "value": f"{100 * (1 - r):.0f}% lower", "sub": f"rMAE {r:.2f}"})
-    if "aemo" in s.index and "price_fc_spike_frac" in s:
-        tiles.append({"label": "AEMO intervals forecast above 1,000 $/MWh", "value": f"{100 * float(s.loc['aemo', 'price_fc_spike_frac']):.1f}%",
-                      "sub": f"actual: {100 * float(s.loc['aemo', 'price_actual_spike_frac']):.1f}%"})
+    if aemo and "price_fc_spike_frac" in s:
+        tiles.append({"label": "AEMO intervals forecast above 1,000 $/MWh", "value": f"{100 * float(s.loc[aemo, 'price_fc_spike_frac']):.1f}%",
+                      "sub": f"actual: {100 * float(s.loc[aemo, 'price_actual_spike_frac']):.1f}%"})
 
     children = [
-        T.heading(title, "Household MILP re-planned every 5 minutes on a 24 h horizon under each price forecaster. "
-                         "The current interval always uses the actual dispatch price. Net-local power uses the same 7-day profile "
-                         "for every forecaster except full perfect foresight, so 'perfect price, forecast load' is the fair reference "
-                         "for the real forecasters: the only thing that changes from it is the price forecast."),
+        T.heading(title, "Household MILP re-planned every 5 minutes on a 24 h horizon under each forecaster. "
+                         "The current interval always uses the actual dispatch price. Each run names its price and its net-local "
+                         "(load) input; unless it says otherwise the load input is the 7-day profile. The cost of a price forecast "
+                         "is its gap to the run with the actual price and the same load input."),
         T.stat_tiles(tiles),
         T.section("Headline: what each forecast is worth in dispatch"),
         row(_profit_bars(summary, names), _value_vs_accuracy(summary, names), sizing_mode="stretch_width"),

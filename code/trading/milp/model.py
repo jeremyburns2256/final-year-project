@@ -34,6 +34,7 @@ from milp.degradation import PHI_A, PHI_K, segment_costs
 INTERVAL_HOURS = 5 / 60  # thesis: NEM dispatch period, 5 minutes
 E_RATED = 13.5            # kWh, rated capacity of the household battery
 R_CELL_PER_KWH = 800.0    # AUD per rated kWh, installed residential battery (see MODEL_NOTES.md)
+EXPORT_LIMIT_KW = 10.0    # kW, Ausgrid single-phase export limit (see MODEL_NOTES.md)
 
 
 @dataclass
@@ -57,7 +58,7 @@ class BatteryParams:
     phi_a: float = PHI_A
     phi_k: float = PHI_K
     network_tariff: float = 0.108007  # $/kWh on imports, Ausgrid EA010
-    export_limit_kw: float | None = None  # not applied when None (no grid limits agreed)
+    export_limit_kw: float | None = EXPORT_LIMIT_KW  # cap on D^e_t; None = unlimited
     import_limit_kw: float | None = None
     allow_grid_charging: bool = True  # False restricts charging to the household's own surplus
 
@@ -104,6 +105,7 @@ class WindowResult:
     grid_export_kw: np.ndarray     # D_e_t
     soc_kwh: np.ndarray            # E_t = sum_j E_{t,j}, end of interval
     segment_soc_kwh: np.ndarray    # E_{t,j}, shape (T, J)
+    segment_discharge_kw: np.ndarray  # P_d_{t,j}, shape (T, J)
     degradation_cost: np.ndarray   # sum_j c_j P_d_{t,j} dt, per interval ($)
     objective: float
     status: str
@@ -245,6 +247,7 @@ def build_and_solve_window(
         grid_export_kw=np.array([val(De[t]) for t in t_idx]),
         soc_kwh=seg.sum(axis=1),
         segment_soc_kwh=seg,
+        segment_discharge_kw=pd_arr,
         degradation_cost=deg,
         objective=float(pulp.value(prob.objective)),
         status=status,

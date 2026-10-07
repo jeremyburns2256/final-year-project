@@ -77,7 +77,21 @@ replacing the cells.
 
 ## Stated simplifications
 
-- No grid import or export limit (parameters exist, default off).
+- Grid export is capped at 10 kW (`EXPORT_LIMIT_KW`), Ausgrid's single-phase export
+  limit, in every MILP run including BESS-only. No import limit (parameter exists,
+  default off). Solar curtailment is not modelled, so the battery must absorb any
+  surplus above the limit. The state machine baseline has no limit.
+- The MPC takes the current interval's net-local power as measured
+  (`step0_actual_net`, default on), as it does the current price, and forecasts
+  only from the next interval on. The committed dispatch therefore meets the
+  export limit inside the optimisation. The price is exact (the NEM dispatch
+  price is set at the start of the interval); for net-local power it idealises
+  an inverter that tracks the meter within the interval, with the MPC as the
+  supervisory layer. Planning step 0 on the forecast instead held discharge back
+  whenever the forecast surplus was too high: at the 17 500 $/MWh spike of
+  15 Jan 2025 it exported 7.1 kW of an available 9.7 kW and lost about $11.7 of
+  the $21.3 the 7-day profile cost over the month. With `step0_actual_net=False`
+  the settle step clips discharge to hold the limit (`export_clipped_kwh`).
 - One charge variable capped at P_max^c regardless of source. A separate
   DC-coupled solar path is not modelled, and cannot be separated with net-meter
   data anyway.

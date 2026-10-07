@@ -206,6 +206,9 @@ month.
 % eta = 0.943, R_cell = $12 000) to the generic battery of Table 3.1 described below.
 % Every number in this chapter and in the analysis chapter is from the old parameters.
 % Re-run python milp_trading.py, forecast_trading.py and retail_trading.py, then refresh.
+% The headline case is also now the 10 kW export limit (EXPORT_LIMIT_KW in milp/model.py),
+% where these numbers are unlimited: the text of Section 8 that says no export limit is
+% enforced (around Table tab:milp:export and in the limitations) needs rewriting.
 The battery is the generic lithium-ion battery of Table~\ref{tab:battery_params}, with a
 rated capacity of 13.5~kWh operated between 15\% and 95\% state of charge, a
 maximum charge power of 5~kW, a maximum discharge power of 11.04~kW, charge and
