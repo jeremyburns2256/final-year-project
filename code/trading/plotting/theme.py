@@ -42,16 +42,25 @@ SURFACE, PAGE, GRID, AXIS = "#fcfcfb", "#f9f9f7", "#e1e0d9", "#c3c2b7"
 GOOD, BAD = "#006300", "#d03b3b"
 BLUE_RAMP = ["#b7d3f6", "#86b6ef", "#5598e7", "#2a78d6", "#1c5cab", "#0d366b"]   # light -> dark
 
-FORECASTER_COLOUR = {"perfect": INK, "perfect_price": INK2, "naive": AQUA, "aemo": BLUE, "lstm": ORANGE}
-FORECASTER_DASH = {"perfect_price": "dashed"}          # the two perfect variants share ink; the dash tells them apart
+FORECASTER_COLOUR = {"perfect": INK, "perfect_price": INK2, "naive": AQUA, "aemo": BLUE, "lstm": ORANGE,
+                     "lstm_load": INK2, "naive_perfect_net": AQUA, "aemo_perfect_net": BLUE, "lstm_perfect_net": ORANGE,
+                     "lstm_lstm_net": ORANGE}
+# Colour is the price input. Among the runs added with the LSTM load forecast the dash is the
+# load input: solid = actual load, dashed = 7-day profile, dotted = LSTM load.
+FORECASTER_DASH = {"perfect_price": "dashed", "lstm_load": "dotted", "lstm_lstm_net": "dotted"}
 FORECASTER_LABEL = {
     "perfect": "Perfect foresight",
-    "perfect_price": "Perfect price, forecast load",
+    "perfect_price": "Perfect price, 7-day average load",
     "naive": "Seasonal naive",
     "aemo": "AEMO pre-dispatch",
     "lstm": "LSTM",
+    "lstm_load": "Perfect price, LSTM load",
+    "naive_perfect_net": "Seasonal naive price, actual load",
+    "aemo_perfect_net": "AEMO pre-dispatch price, actual load",
+    "lstm_perfect_net": "LSTM price, actual load",
+    "lstm_lstm_net": "LSTM price, LSTM load",
 }
-PERFECT_PRICE = {"perfect", "perfect_price"}          # forecasters with zero price error
+PERFECT_PRICE = {"perfect", "perfect_price", "lstm_load"}   # forecasters with zero price error
 
 
 def line_style(name: str) -> dict:
@@ -216,6 +225,13 @@ def section(title: str, note: str = "") -> Div:
 def note(text: str) -> Div:
     return Div(text=f'<div style="font:12px {FONT};color:{MUTED};line-height:1.45;max-width:1100px">{text}</div>',
                sizing_mode="stretch_width")
+
+
+def notice(text: str) -> Div:
+    """A boxed caveat that must not be missed, e.g. results that are incomplete or stale."""
+    return Div(text=f'<div style="font:13px {FONT};color:{INK};line-height:1.45;max-width:1100px;padding:10px 14px;'
+                    f'border:1px solid {YELLOW};border-left:4px solid {YELLOW};border-radius:4px;background:{SURFACE}">{text}</div>',
+               sizing_mode="stretch_width", styles={"margin": "6px 0"})
 
 
 def stat_tiles(tiles) -> Div:

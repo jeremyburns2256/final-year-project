@@ -175,6 +175,7 @@ def simulate_milp_mpc(
     forecaster,
     horizon_hours: float = 24.0,
     step0_actual_price: bool = True,
+    step0_actual_net: bool = True,
     solver_name: str = "HiGHS",
     solver_time_limit: float | None = 30.0,
     verbose: bool = True,
@@ -186,10 +187,19 @@ def simulate_milp_mpc(
 
     At each test interval t:
       1. price_fc  = forecaster.price(t, H);  price_fc[0] = actual RRP (if step0_actual_price)
-         net_fc    = forecaster.net_local(t, H)
+         net_fc    = forecaster.net_local(t, H);  net_fc[0] = actual net-local (if step0_actual_net)
       2. solve the Chapter 2 MILP over the H-interval horizon
       3. commit P_c, P_d for interval t only; recompute D_i, D_e from the balance
-         with the *actual* net-local; cost with the *actual* RRP
+         with the *actual* net-local; cost with the *actual* RRP. If that puts
+         D_e over params.export_limit_kw, P_d is clipped to hold the limit, as an
+         export-limited inverter would, deepest (dearest) segment first. This
+         only arises with step0_actual_net=False
+
+    step0_actual_net treats the current interval's net-local power as measured,
+    the same footing as its price: the MPC is the supervisory layer over an
+    inverter that tracks the meter within the interval. The committed dispatch
+    then meets the grid limits inside the optimisation, and the load forecast is
+    charged only for what it gets wrong about later intervals.
       4. carry per-segment SoC forward
 
     The horizon shrinks at the end of the data so the terminal constraint
@@ -214,6 +224,7 @@ def simulate_milp_mpc(
     grid_export = np.zeros(n)
     soc = np.zeros(n)
     deg = np.zeros(n)
+    clipped = np.zeros(n)
     price_fc_next = np.full(n, np.nan)
     net_fc_now = np.zeros(n)
     seg_state = params.initial_segment_energy()
@@ -226,15 +237,29 @@ def simulate_milp_mpc(
         net_fc = np.asarray(forecaster.net_local(t, h), dtype=float)
         if step0_actual_price:
             price_fc[0] = rrp[t]
+        if step0_actual_net:
+            net_fc[0] = net_actual[t]
         res = build_and_solve_window(price_fc, net_fc, params, seg_state, e_terminal, solver=solver)
 
         pc, pd_ = res.charge_kw[0], res.discharge_kw[0]
+        seg_state = res.segment_soc_kwh[0].copy()
+        deg[i] = res.degradation_cost[0]
         grid = pc - pd_ - net_actual[t]              # Eq. 2.8 with actual household power
+        if params.export_limit_kw is not None and -grid > params.export_limit_kw + 1e-9:
+            # The plan met the limit on the forecast net-local; the actual is higher.
+            clip = min(-grid - params.export_limit_kw, pd_)
+            clipped[i] = clip
+            left = clip
+            for j in reversed(range(params.n_segments)):
+                cut = min(left, res.segment_discharge_kw[0][j])
+                seg_state[j] += cut / params.eta_d * dt
+                deg[i] -= c[j] * cut * dt
+                left -= cut
+            pd_ -= clip
+            grid += clip
         charge[i], discharge[i] = pc, pd_
         grid_import[i], grid_export[i] = max(grid, 0.0), max(-grid, 0.0)
-        seg_state = res.segment_soc_kwh[0].copy()
         soc[i] = seg_state.sum()
-        deg[i] = res.degradation_cost[0]
         price_fc_next[i] = price_fc[1] if h > 1 else np.nan
         net_fc_now[i] = net_fc[0]
         total_solve += res.solve_seconds
@@ -265,5 +290,6 @@ def simulate_milp_mpc(
     )
     results["cumulative_profit"] = results["cumulative_revenue"] - results["cumulative_cost"]
     metrics = summarise(results, params, r_cell_valuation=r_cell_valuation)
-    metrics.update({"n_windows": n, "solve_seconds": total_solve, "forecaster": forecaster.name})
+    metrics.update({"n_windows": n, "solve_seconds": total_solve, "forecaster": forecaster.name,
+                    "export_clipped_kwh": float(clipped.sum() * dt), "export_clipped_intervals": int((clipped > 0).sum())})
     return results, metrics

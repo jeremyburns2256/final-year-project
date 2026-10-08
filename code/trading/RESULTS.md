@@ -18,6 +18,11 @@ Written 2026-09-21. Every number is read from `results/*.csv`.
 > parameters (13.5 kWh usable, η = 0.943, R_cell = 12 000) and none has been re-run.
 > To refresh: `python milp_trading.py`, `python forecast_trading.py`,
 > `python retail_trading.py`. Run labels and plot names change from `R12000` to `R10800`.
+>
+> **10 kW export limit is now the default (2026-10-03).** Every MILP run caps grid export
+> at 10 kW (`EXPORT_LIMIT_KW` in `milp/model.py`); the numbers below are from unlimited
+> runs except the export-limit table. The same re-run refreshes them, and the text that
+> calls the unlimited case the headline needs rewriting around the 10 kW case.
 
 Design decisions behind each study are in `milp/MODEL_NOTES.md`, `FORECAST_NOTES.md`
 and `retail/MODEL_NOTES.md`. All dollar figures are AUD for the 31 days of January
