@@ -1,25 +1,49 @@
 % !TEX root = ../main.tex
 \chapter{Implementation}
 
-\section{MILP Optimisiation}
-Mixed-integer linear programming was used to...
-Optimised over a 48 hour window and committed 24 hours. The model is optimised over 48 hours to prevent it discharging the battery completely at the end of the 24 hour window that is committed
-Household modeled is a single dwelling with rooftop solar. Its meter records import and export only, so the mo0del observes the net local power $G_n - A_n$ never $G_n$ and $A_n$ separately
+\section{MILP Optimisation}
+Mixed-integer linear programming was used to control the operation of the battery. The system model and constraints outlined in Chapter~\ref{ch:systemmodel} were implemented into the PuLP Python package. The system was then solved using HiGHS optimisation software. The optimiser plans over a 24-hour horizon using the forecast price and load along with the data for the current interval. The simulation then commits only the first intervals charge and discharge actions and then recomputes over the next 24-hour horizon. The MILP optimiser runs with a variety of forecasting methods for price and load.
 
-\section{Battery Degredation}
-Battery degradation is represented inside the MILP by the J-segment cycle aging cost
-Every dispatch schedule is additionally valued after the fact by rainflow cycle counting 
-The rainflow cycle counting result is not used for the optimisation as it is non-linear. However it is more accurate than the piece-wise estimation so is used for calculating the final resulting degredation.
+
+\section{Battery Degradation}
+Battery degradation is represented inside the MILP objective function by the J-segment cycle aging cost which provides a linear approximation for battery degradation. Different values for J were studied to determine the system behaviour and accuracy of the piece-wise linearisation. After the optimisation completed, rainflow cycle counting was used. The rainflow counting algorithm has been applied to battery life assessment to determine the number of equivalent cycles of battery discharges \cite{xu_degradation} \cite{muenzel_cycle_life}. The rainflow algorithms is used as a benchmark method for assessing battery cycle life as in Xu et. al \cite{Xu2018}. The total life lost $L$ from a SoC profile is assumed to be the sum of the life loss from all $I$ number of cycles. Using the cycle depth stress function $\phi(\delta)$ given a cycle depth of $\delta$, the life loss in polynomial form is:
+\begin{equation}
+    L = \sum_{i=1}^{I} \Phi(\delta_i).
+\end{equation}
+
+The benchmark is then used for comparing different piece-wise approximations and forecasting models.
 
 
 \section{LSTM Models}
-LSTM models were used for prediction of both wholesale price and net residential loads..
+LSTM models were used to forecast both wholesale price and the net local power. Both models were implemented in PyTorch and share a common structure. A stacked LSTM layers read a window of past state values, and the final hidden state of the last layer is passed through a small network that outputs the forecasted values of the 24 hour horizon. A forecast is issued at the start of each step using data up to the end of the previous step. Each forecasted value is held constant across the time-slot.
+
 \subsection{Price Forecaster}
-We used details from paper xx for this model and it was structured as
+The price model takes the values of three features over the previous seven days as input. The first feature is the regional price transformed as $\sinh^{-1}(R/100)$. The transformation is approximately linear near zero and logarithmic for large prices. This prevents the large price peaks from skewing the weights of the model. The second feature is regional demand, standardised by its mean and standard deviation over the training period. The third feature is six calendar features: the sine and cosine of the time of day, day of week and day of year. The network is a two-layer LSTM with 64 hidden units and a drop of 0.2. Forecasts are returned to \$/Mwh from the final hidden state by $100\sinh(\hat{x})$.
+
+The model was trained on NEM data from 2015 to 2023 and validated on 2024 data. The five-minute data after October 2021 was averaged to half-hours to maintain consistent resolution. The Huber loss function was used on the transformed price output which limited the influence of large errors caused by unpredicted price peaks. The optimiser was Adam with an initial learning rate of $10^{-3}$ and a batch size of 256. The learning rate was halves after two epochs without improvement over the validation data. Training stopped early after five epochs without improvement to prevent overfitting, and the weights from the epoch with the lowest validation loss were used.
+
 \subsection{Net Local Power Forecaster}
+The net local power model follows the residential load LSTM in Kong et al.~\cite{kong2019lstm}. Each slot has four inputs. The first input is the net local power, $G-A$, min-max scaled over the range of training data. The other inputs are the half-hour of the day, the day of the week and a flag for NSW public holidays. As in Kong et al., the network is two stacked LSTM layers of 20 units. The final hidden state passes through a fully connected later of 64 units with ReLU activation, then a final linear layer with 48 outputs. The model was trained with a mean squared error loss, using Adam with a learning rate of $10^{-3}$ and a batch size of 64.
+
+The Kong et al. model was adjusted to have an output layer with 48 outputs instead of one. This reflected the forecasters requirement to predict over a 24-hour period instead of a 30-minute period. Additionally, the look-back was set to one day (48 half-hour periods), against the 2 to 12 half-hours used by Kong et al. The model was trained on data from January to October 2024, validated on November and December 2024, and tested on January 2025.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.4\textwidth]{images/lstm_forecating_framework.png}
+    \caption{LSTM forecasting framework \cite{kong2019lstm}}
+    \label{fig:lstm_framework}
+\end{figure}
 
 \section{Additional Forecasters}
 \subsection{Seasonal Naive}
+This is the simplest forecaster considered. The forecaster predicts that the price over an interval is equal to the price over the same interval the day before.
+
+\begin{equation}
+    \hat{R}_{k+j \mid k} = \bar{R}_{k+j-48}, \qquad j = 0, 1, \dots, 47
+\end{equation}
+
 \subsection{AEMO Pre-Dispatch}
+The Australian Energy Market Operator publishes price forecasts for each NEM region. The forecasts are recalculated every half-hour and provide a half-hourly price for every period to the end of the following market day. AEMO calculated the price forecasting by considering; bids submitted by participants, AEMO's demand forecast, AEMO's intermittent generation forecasts and constraints including network condition, FCAS requirements and inter-connector limits \cite{gannon2021p30}. This forecasting method is used in Karimi-Arpanahi et al. \cite{KarimiArpanahi2024}.
+
 
 \subsection{7-day Load Profile}
