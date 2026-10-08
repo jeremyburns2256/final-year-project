@@ -1,0 +1,8 @@
+{
+  "ltex.enabled": ["latex", "bibtex", "markdown"],
+  "ltex.language": "en-AU",
+  "ltex.additionalRules.enablePickyRules": true,
+  "ltex.latex.environments": {
+    "tabular": "ignore"
+  }
+}

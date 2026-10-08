@@ -147,16 +147,17 @@ The constraint defined in Equation~\ref{eq:cons:demand} ensures that household d
 
 \subsection{Observable State Space}
 In this project, the household uses a smart electricity meter. Smart meters record the net
-household electricity consumption at 5-minute resolution, and the reading for each slot is
-assumed to be available to the controller before the next slot begins. Therefore the net
-household electricity consumption is available for all time-slots before slot $n$, however the values of $G$ and $A$ are not known.
-Denote the net household electricity before battery as 
+household electricity consumption at 5-minute resolution. The values of solar generation, $G$, and household load, $A$, are not recorded independently. Instead, the net household electricity, $H$, is used for the optimisation.
+
 \begin{equation}
     H = G-A
 \end{equation}
-The electricity spot price, in contrast, is revealed to the market by AEMO at the beginning
+
+A simplifying assumption made in this study is that the net household electricity consumption is known at beginning of each time slot $n$. This assumption is made to reflect the inverter's ability to respond to real-time changes in household demand and generation. An analysis of the effects of removing this assumption is detailed in Section~\ref{sec:analysis:observable_state}.
+
+The electricity spot price is also revealed to the market by AEMO at the beginning
 of each time slot $n$. The regional system demand $L$ published by AEMO is likewise
-available for all time-slots before slot $n$.
+available for all time-slots before slot $n$. The regional system demand is the measured generation in the region adjusted for interconnector flows, with a forecast adjustment for the lag between metering and dispatch \cite{openelectricity_demand}.
 
 The charge and discharge decisions at slot $n$ are functions of the system observations
 available at time-slot $n$, \eqref{eq:sysknowledge:state}, and the history of previous
@@ -165,9 +166,9 @@ charge/discharge decisions, \eqref{eq:sysknowledge:decision}.
 \begin{subequations}
     \begin{align}
         \textbf{V}_n &= \begin{bmatrix}
-            H_1 & H_2 & \cdots & H_{n-1} & \\
-            L_{1} & L_2 & \cdots & L_{n-1} & \\
-            R_{1} & R_2 & \cdots & R_{n-1} & R_{n}
+            H_1 & H_2 & \cdots & H{n}\\
+            L_{1} & L_2 & \cdots & L_{n} & \\
+            R_{1} & R_2 & \cdots & R_{n}
         \end{bmatrix} \label{eq:sysknowledge:state}  \\
         \textbf{K}_n &= \begin{bmatrix}
             P^c_{1} & P^c_{2} & \cdots & P^c_{n-1} \\
