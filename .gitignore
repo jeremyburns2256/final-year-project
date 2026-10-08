@@ -14,38 +14,3 @@ venv/
 
 # LibreOffice lock files
 .~lock.*#
-
-# ── code ────────────────────────────────────────────────────
-# AEMO raw archives (regenerate with nemosis)
-code/trading/data/nemosis_cache/
-
-# trained forecasters are tracked (small)
-
-# per-interval simulation output and run logs (1-2 MB each; regenerate with the drivers)
-code/trading/results/milp_*_R*.csv
-code/trading/results/mpc_*.csv
-code/trading/results/*.log
-
-# per-run plot pages are drawn on demand (--per-run); only the headline run is tracked
-code/trading/plots/milp_*_R*.html
-code/trading/plots/mpc_*.html
-!code/trading/plots/milp_household_J4_R12000.html
-
-# ── report ──────────────────────────────────────────────────
-# All LaTeX output, including main.pdf, is written here by .latexmkrc.
-# Rebuild with: cd report && latexmk -pdf main.tex
-report/build/
-
-# LaTeX output written beside the source when the build bypasses .latexmkrc (e.g. an editor's own recipe)
-report/*.aux
-report/*.bbl
-report/*.blg
-report/*.fdb_latexmk
-report/*.fls
-report/*.lof
-report/*.log
-report/*.lot
-report/*.out
-report/*.synctex.gz
-report/*.toc
-report/main.pdf
