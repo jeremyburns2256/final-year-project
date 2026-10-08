@@ -384,9 +384,16 @@ def plot_forecast_study(
     issue_hours=(4.0 + 5 / 60, 12.0 + 5 / 60),
     bess_size: float | None = 13.5,
     price_ylim=None,   # kept for call compatibility; the price axis is asinh-scaled instead of clipped
+    notice: str = "",
 ) -> None:
+    """
+    summary drives the bars, tiles and table; results (per-interval frames) drive the
+    month and case-study charts, which leave out any forecaster missing from it.
+    notice is shown in a box under the heading.
+    """
     forecasters = forecasters or {}
-    names = [n for n in _present(summary) if n in results]
+    names = _present(summary)
+    series = [n for n in names if n in results]
     s = summary.set_index("forecaster")
     perfect = float(s.loc["perfect", "net_profit_incl_degradation"]) if "perfect" in s.index else np.nan
     real = _real(names)
@@ -399,7 +406,7 @@ def plot_forecast_study(
         tiles.append({"label": "Perfect foresight, net of degradation", "value": f"${perfect:.2f}", "sub": "upper bound, same 24 h MPC loop"})
     if "perfect_price" in s.index and perfect == perfect:
         v = float(s.loc["perfect_price", "net_profit_incl_degradation"])
-        tiles.append({"label": "Perfect price, forecast household load", "value": f"${v:.2f}",
+        tiles.append({"label": "Perfect price, 7-day average load", "value": f"${v:.2f}",
                       "sub": f"load forecast costs ${perfect - v:.2f}; the rest of any gap is the price forecast"})
     if real:
         best = max(real, key=lambda n: s.loc[n, "net_profit_incl_degradation"])
@@ -418,10 +425,12 @@ def plot_forecast_study(
                       "sub": f"actual: {100 * float(s.loc[aemo, 'price_actual_spike_frac']):.1f}%"})
 
     children = [
-        T.heading(title, "Household MILP re-planned every 5 minutes on a 24 h horizon under each forecaster. "
-                         "The current interval always uses the actual dispatch price. Each run names its price and its net-local "
-                         "(load) input; unless it says otherwise the load input is the 7-day profile. The cost of a price forecast "
-                         "is its gap to the run with the actual price and the same load input."),
+        T.heading(title, "Household MILP re-planned every 5 minutes on a 24 h horizon under each forecaster, with grid export "
+                         "capped at 10 kW. The current interval always uses the actual dispatch price and the measured net-local "
+                         "power; forecasts apply from the next interval on. Each run names its price and its net-local (load) input; "
+                         "unless it says otherwise the load input is the 7-day profile. The cost of a price forecast is its gap to "
+                         "the run with the actual price and the same load input."),
+        *([T.notice(notice)] if notice else []),
         T.stat_tiles(tiles),
         T.section("Headline: what each forecast is worth in dispatch"),
         row(_profit_bars(summary, names), _value_vs_accuracy(summary, names), sizing_mode="stretch_width"),
@@ -437,14 +446,20 @@ def plot_forecast_study(
     if lead:
         children.append(row(*lead, sizing_mode="stretch_width"))
 
-    src_month, _ = _month_source(results, names)
-    children += [T.section("Through the month"), _cumulative_profit(src_month, results, names)]
-    if "perfect" in names and real:
-        children.append(_cumulative_gap(src_month, results, names))
+    if not series:
+        tbl = summary.set_index("forecaster").loc[names].reset_index()
+        tbl["label"] = [T.FORECASTER_LABEL.get(n, n) for n in tbl["forecaster"]]
+        children += [T.section("Table view"), T.summary_table(tbl, TABLE_COLUMNS, height=48 + 28 * len(names))]
+        T.save_page(children, title=title, output_path=output_path)
+        return
+    src_month, _ = _month_source(results, series)
+    children += [T.section("Through the month"), _cumulative_profit(src_month, results, series)]
+    if "perfect" in series and _real(series):
+        children.append(_cumulative_gap(src_month, results, series))
 
     if frame is not None and forecasters:
         day_start = pd.Timestamp(day)
-        base = results[names[0]]
+        base = results[series[0]]
         i = int(base["rrp"].to_numpy().argmax())
         spike_ts = _times(base).iloc[i]
         panels = []
@@ -454,7 +469,7 @@ def plot_forecast_study(
                                "Each panel shows the 24 h forecasts issued at the dashed line against what happened. "
                                "The price axis is asinh-scaled: linear near zero, logarithmic in the spikes, so a 17,500 $/MWh cap price and a 40 $/MWh afternoon both read."),
                      row(*panels, sizing_mode="stretch_width")]
-        soc = _day_soc_panel(src_month, names, day_start, bess_size, spike_ts)
+        soc = _day_soc_panel(src_month, series, day_start, bess_size, spike_ts)
         price = _day_price_panel(src_month, day_start, soc.x_range)
         children += [price, soc]
 

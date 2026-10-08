@@ -82,7 +82,7 @@ def run_milp_simulation(
     if verbose:
         print_metrics(label, metrics)
     os.makedirs(RESULTS_DIR, exist_ok=True)
-    results_df.to_csv(f"{RESULTS_DIR}/milp_{label}.csv", index=False)
+    results_df.to_csv(f"{RESULTS_DIR}/milp_{label}{f'_{n_days}d' if n_days else ''}.csv", index=False)   # short runs never overwrite the month
     if plot:
         plot_milp_run(results_df, label, params.e_rated, title=plot_title, output_path=plot_output_path)
     return {"results_df": results_df, "metrics": metrics, "params": params, "label": label}
@@ -235,6 +235,8 @@ def replot(n_days=None, per_run_plots=False) -> None:
     e_rated = BatteryParams().e_rated
     for path in sorted(glob.glob(f"{RESULTS_DIR}/milp_*_J*_R*.csv")):
         label = os.path.basename(path)[len("milp_"):-len(".csv")]
+        if label.endswith("d"):   # a short run (_<n>d suffix)
+            continue
         if per_run_plots or label in KEEP_RUN_PLOTS:
             plot_milp_run(pd.read_csv(path), label, e_rated)
 

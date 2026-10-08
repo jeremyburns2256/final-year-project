@@ -29,6 +29,7 @@ from forecasting import load_frame
 from milp.model import BatteryParams
 from milp.rolling import simulate_milp_mpc
 from milp_trading import R_CELL, print_metrics
+from plotting import theme as T
 from plotting.battery_plot import plot_battery_trading
 from plotting.forecast_study_plot import plot_forecast_study
 
@@ -129,12 +130,17 @@ def forecast_errors(forecaster, frame, horizon: int = 288, step0_actual: bool = 
     }
 
 
+def run_label(name: str, household: bool = True, n_days=None) -> str:
+    """Per-run file stem. Short runs carry an _<n>d suffix so they never overwrite the full-month files."""
+    return f"mpc_{'household' if household else 'bess_only'}_J{N_SEGMENTS}_{name}" + (f"_{n_days}d" if n_days else "")
+
+
 def run_one(name: str, household: bool, n_days, solver_name: str, plot: bool, verbose: bool) -> dict:
     """One forecaster end to end. Safe to call in a worker process."""
     frame = load_frame(household=household, n_test_days=n_days)
     params = BatteryParams(r_cell=R_CELL, n_segments=N_SEGMENTS)
     forecaster = make_forecaster(name, frame, household)
-    label = f"mpc_{'household' if household else 'bess_only'}_J{N_SEGMENTS}_{name}"
+    label = run_label(name, household, n_days)
     if verbose:
         print(f"\n=== {label}: {frame.n - frame.test_start} intervals, horizon {HORIZON_HOURS}h, {solver_name} ===")
     results_df, metrics = simulate_milp_mpc(
@@ -146,7 +152,7 @@ def run_one(name: str, household: bool, n_days, solver_name: str, plot: bool, ve
     results_df.to_csv(f"{RESULTS_DIR}/{label}.csv", index=False)
     row = {"forecaster": name, "scenario": "household" if household else "bess_only",
            "n_segments": N_SEGMENTS, "r_cell": R_CELL, "n_days": n_days, **metrics}
-    with open(f"{RESULTS_DIR}/{label}{'_' + str(n_days) + 'd' if n_days else ''}.json", "w") as fh:
+    with open(f"{RESULTS_DIR}/{label}.json", "w") as fh:
         json.dump(row, fh, indent=2)
     if plot:
         os.makedirs(PLOTS_DIR, exist_ok=True)
@@ -161,8 +167,7 @@ def run_one(name: str, household: bool, n_days, solver_name: str, plot: bool, ve
 
 
 def load_saved_row(name: str, household: bool, n_days) -> dict | None:
-    label = f"mpc_{'household' if household else 'bess_only'}_J{N_SEGMENTS}_{name}"
-    path = f"{RESULTS_DIR}/{label}{'_' + str(n_days) + 'd' if n_days else ''}.json"
+    path = f"{RESULTS_DIR}/{run_label(name, household, n_days)}.json"
     if os.path.exists(path):
         with open(path) as fh:
             return json.load(fh)
@@ -221,18 +226,27 @@ def plot_study(summary: pd.DataFrame, forecasters=ALL_FORECASTERS, household: bo
     scenario = "household" if household else "bess_only"
     names = [f for f in forecasters if f in set(summary["forecaster"])]
     fcs = {f: make_forecaster(f, frame, household) for f in names}
-    res = {f: pd.read_csv(f"{RESULTS_DIR}/mpc_{scenario}_J{N_SEGMENTS}_{f}.csv") for f in names}
+    res = {f: pd.read_csv(f"{RESULTS_DIR}/{run_label(f, household, n_days)}.csv") for f in names}
+    n_expected = frame.n - frame.test_start
+    short = {f: len(r) for f, r in res.items() if len(r) != n_expected}
+    notice = ""
+    if short:
+        listed = ", ".join(f"{T.FORECASTER_LABEL.get(f, f)} ({n:,} of {n_expected:,} intervals)" for f, n in short.items())
+        notice = (f"<b>Incomplete per-interval results:</b> {listed}. The charts through the month and the case study leave "
+                  f"{'it' if len(short) == 1 else 'them'} out; the bars, tiles and table use the full-month totals from the summary. "
+                  f"Re-run the forecaster to restore {'its' if len(short) == 1 else 'their'} series.")
+        res = {f: r for f, r in res.items() if f not in short}
     day = str(frame.start_times[frame.test_start].normalize().date()) if n_days else "2025-01-15"
     suffix = f"_{n_days}d" if n_days else ""
     os.makedirs(PLOTS_DIR, exist_ok=True)
     if per_run:
         e_rated = BatteryParams(r_cell=R_CELL, n_segments=N_SEGMENTS).e_rated
         for f in names:
-            label = f"mpc_{scenario}_J{N_SEGMENTS}_{f}"
+            label = run_label(f, household, n_days)
             plot_battery_trading(res[f], title=f"MPC, {scenario}, J={N_SEGMENTS}, {f} forecaster",
                                  output_path=f"{PLOTS_DIR}/{label}.html", bess_size=e_rated, show_plot=False)
     plot_forecast_study(summary, res, frame, fcs, title=f"Forecast study JAN25{suffix}",
-                        output_path=f"{PLOTS_DIR}/forecast_study{suffix}.html", day=day)
+                        output_path=f"{PLOTS_DIR}/forecast_study{suffix}.html", day=day, notice=notice)
 
 
 def lead_time_errors(frame, names, horizon: int = 288) -> pd.DataFrame:
@@ -294,8 +308,8 @@ def plot_noise(suffix: str = "") -> None:
     if missing:
         lead = pd.concat([lead, lead_time_errors(frame, missing)], ignore_index=True) if lead is not None else lead_time_errors(frame, missing)
         lead.to_csv(lead_path, index=False)
-    results = {n: pd.read_csv(f"{RESULTS_DIR}/mpc_household_J{N_SEGMENTS}_{n}.csv") for n in names
-               if os.path.exists(f"{RESULTS_DIR}/mpc_household_J{N_SEGMENTS}_{n}.csv")}
+    paths = {n: f"{RESULTS_DIR}/{run_label(n, n_days=float(suffix[1:-1]) if suffix else None)}.csv" for n in names}
+    results = {n: pd.read_csv(p) for n, p in paths.items() if os.path.exists(p)}
     os.makedirs(PLOTS_DIR, exist_ok=True)
     plot_noise_study(noise, real, results, lead, title=f"Forecast error and trading value JAN25{suffix}",
                      output_path=f"{PLOTS_DIR}/forecast_noise_study{suffix}.html", r_cell=R_CELL, example=example)

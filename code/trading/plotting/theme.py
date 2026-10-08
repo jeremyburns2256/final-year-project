@@ -50,7 +50,7 @@ FORECASTER_COLOUR = {"perfect": INK, "perfect_price": INK2, "naive": AQUA, "aemo
 FORECASTER_DASH = {"perfect_price": "dashed", "lstm_load": "dotted", "lstm_lstm_net": "dotted"}
 FORECASTER_LABEL = {
     "perfect": "Perfect foresight",
-    "perfect_price": "Perfect price, forecast load",
+    "perfect_price": "Perfect price, 7-day average load",
     "naive": "Seasonal naive",
     "aemo": "AEMO pre-dispatch",
     "lstm": "LSTM",
@@ -225,6 +225,13 @@ def section(title: str, note: str = "") -> Div:
 def note(text: str) -> Div:
     return Div(text=f'<div style="font:12px {FONT};color:{MUTED};line-height:1.45;max-width:1100px">{text}</div>',
                sizing_mode="stretch_width")
+
+
+def notice(text: str) -> Div:
+    """A boxed caveat that must not be missed, e.g. results that are incomplete or stale."""
+    return Div(text=f'<div style="font:13px {FONT};color:{INK};line-height:1.45;max-width:1100px;padding:10px 14px;'
+                    f'border:1px solid {YELLOW};border-left:4px solid {YELLOW};border-radius:4px;background:{SURFACE}">{text}</div>',
+               sizing_mode="stretch_width", styles={"margin": "6px 0"})
 
 
 def stat_tiles(tiles) -> Div:
