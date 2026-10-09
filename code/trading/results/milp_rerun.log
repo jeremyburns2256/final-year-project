@@ -1,0 +1,579 @@
+
+=== MILP run: bess_only_J1_R0 (8928 intervals, window 48.0h / step 24.0h, HiGHS) ===
+    segment costs c_j ($/kWh): [0.0]
+  window   1: t=    0..  576 commit 288  obj=   -2.501  solve= 0.11s  SoC_end= 0.00 kWh
+  window   2: t=  288..  864 commit 288  obj=   -1.414  solve= 0.09s  SoC_end= 2.78 kWh
+  window   3: t=  576.. 1152 commit 288  obj=   -2.783  solve= 0.10s  SoC_end= 0.00 kWh
+  window   4: t=  864.. 1440 commit 288  obj=   -1.192  solve= 0.11s  SoC_end= 0.00 kWh
+  window   5: t= 1152.. 1728 commit 288  obj=   -0.717  solve= 0.10s  SoC_end= 3.97 kWh
+  window   6: t= 1440.. 2016 commit 288  obj=   -0.888  solve= 0.13s  SoC_end= 1.56 kWh
+  window   7: t= 1728.. 2304 commit 288  obj=   -0.231  solve= 0.11s  SoC_end= 6.70 kWh
+  window   8: t= 2016.. 2592 commit 288  obj=   -1.087  solve= 0.12s  SoC_end=10.75 kWh
+  window   9: t= 2304.. 2880 commit 288  obj=   -1.998  solve= 0.13s  SoC_end= 0.00 kWh
+  window  10: t= 2592.. 3168 commit 288  obj=    0.510  solve= 0.12s  SoC_end= 0.00 kWh
+  window  11: t= 2880.. 3456 commit 288  obj=    0.165  solve= 0.09s  SoC_end= 0.41 kWh
+  window  12: t= 3168.. 3744 commit 288  obj=   -2.409  solve= 0.18s  SoC_end= 8.78 kWh
+  window  13: t= 3456.. 4032 commit 288  obj=   -5.677  solve= 0.15s  SoC_end= 0.00 kWh
+  window  14: t= 3744.. 4320 commit 288  obj=  -51.147  solve= 0.20s  SoC_end= 0.00 kWh
+  window  15: t= 4032.. 4608 commit 288  obj=  -50.295  solve= 0.16s  SoC_end= 1.38 kWh
+  window  16: t= 4320.. 4896 commit 288  obj=   -1.138  solve= 0.11s  SoC_end= 0.00 kWh
+  window  17: t= 4608.. 5184 commit 288  obj=    0.092  solve= 0.10s  SoC_end= 0.00 kWh
+  window  18: t= 4896.. 5472 commit 288  obj=   -0.608  solve= 0.10s  SoC_end= 0.00 kWh
+  window  19: t= 5184.. 5760 commit 288  obj=   -2.122  solve= 0.11s  SoC_end= 0.00 kWh
+  window  20: t= 5472.. 6048 commit 288  obj=   -3.114  solve= 0.14s  SoC_end= 0.00 kWh
+  window  21: t= 5760.. 6336 commit 288  obj=  -56.879  solve= 0.11s  SoC_end= 0.00 kWh
+  window  22: t= 6048.. 6624 commit 288  obj=  -55.730  solve= 0.12s  SoC_end= 0.00 kWh
+  window  23: t= 6336.. 6912 commit 288  obj=   -0.671  solve= 0.19s  SoC_end=10.89 kWh
+  window  24: t= 6624.. 7200 commit 288  obj=   -2.117  solve= 0.18s  SoC_end= 0.00 kWh
+  window  25: t= 6912.. 7488 commit 288  obj=    0.276  solve= 0.14s  SoC_end= 0.00 kWh
+  window  26: t= 7200.. 7776 commit 288  obj=   -0.434  solve= 0.16s  SoC_end=12.52 kWh
+  window  27: t= 7488.. 8064 commit 288  obj=   -1.805  solve= 0.16s  SoC_end= 1.80 kWh
+  window  28: t= 7776.. 8352 commit 288  obj=   -0.567  solve= 0.18s  SoC_end= 7.69 kWh
+  window  29: t= 8064.. 8640 commit 288  obj=   -1.759  solve= 0.18s  SoC_end= 0.98 kWh
+  window  30: t= 8352.. 8928 commit 288  obj=    0.117  solve= 0.11s  SoC_end= 1.95 kWh
+  window  31: t= 8640.. 8928 commit 288  obj=    0.255  solve= 0.05s  SoC_end= 6.75 kWh
+--------------------------------------------
+  bess_only_J1_R0
+--------------------------------------------
+Grid cost:                    $    35.15
+Grid revenue:                 $   171.37
+Net profit excl. degradation: $   136.23
+Degradation cost (model):     $     0.00   (optimiser's internal PWL cost)
+Degradation cost (rainflow):  $   139.31   rel. error nan
+Net profit incl. degradation: $    -3.09   (uses rainflow cost at R_cell=12000)
+Life loss: 1.161%   rainflow cycles: 59.5   mean depth 0.45   EFC 25.4
+Final SoC: 6.75 kWh   solve time 4.0s
+
+=== MILP run: bess_only_J1_R12000 (8928 intervals, window 48.0h / step 24.0h, HiGHS) ===
+    segment costs c_j ($/kWh): [0.4937]
+  window   1: t=    0..  576 commit 288  obj=   -0.861  solve= 0.09s  SoC_end= 5.96 kWh
+  window   2: t=  288..  864 commit 288  obj=    0.059  solve= 0.10s  SoC_end= 6.75 kWh
+  window   3: t=  576.. 1152 commit 288  obj=    0.000  solve= 0.09s  SoC_end= 6.75 kWh
+  window   4: t=  864.. 1440 commit 288  obj=    0.000  solve= 0.09s  SoC_end= 6.75 kWh
+  window   5: t= 1152.. 1728 commit 288  obj=    0.000  solve= 0.09s  SoC_end= 6.75 kWh
+  window   6: t= 1440.. 2016 commit 288  obj=    0.000  solve= 0.09s  SoC_end= 6.75 kWh
+  window   7: t= 1728.. 2304 commit 288  obj=    0.000  solve= 0.09s  SoC_end= 6.75 kWh
+  window   8: t= 2016.. 2592 commit 288  obj=    0.000  solve= 0.09s  SoC_end= 6.75 kWh
+  window   9: t= 2304.. 2880 commit 288  obj=    0.000  solve= 0.09s  SoC_end= 6.75 kWh
+  window  10: t= 2592.. 3168 commit 288  obj=    0.000  solve= 0.09s  SoC_end= 6.75 kWh
+  window  11: t= 2880.. 3456 commit 288  obj=    0.000  solve= 0.09s  SoC_end= 6.75 kWh
+  window  12: t= 3168.. 3744 commit 288  obj=    0.000  solve= 0.12s  SoC_end= 6.75 kWh
+  window  13: t= 3456.. 4032 commit 288  obj=   -0.440  solve= 0.09s  SoC_end= 7.73 kWh
+  window  14: t= 3744.. 4320 commit 288  obj=  -47.183  solve= 0.09s  SoC_end= 6.75 kWh
+  window  15: t= 4032.. 4608 commit 288  obj=  -46.718  solve= 0.09s  SoC_end= 3.82 kWh
+  window  16: t= 4320.. 4896 commit 288  obj=    0.205  solve= 0.09s  SoC_end= 5.00 kWh
+  window  17: t= 4608.. 5184 commit 288  obj=    0.112  solve= 0.10s  SoC_end= 5.79 kWh
+  window  18: t= 4896.. 5472 commit 288  obj=    0.062  solve= 0.11s  SoC_end= 6.58 kWh
+  window  19: t= 5184.. 5760 commit 288  obj=    0.012  solve= 0.11s  SoC_end= 6.75 kWh
+  window  20: t= 5472.. 6048 commit 288  obj=    0.000  solve= 0.09s  SoC_end= 6.75 kWh
+  window  21: t= 5760.. 6336 commit 288  obj=  -49.924  solve= 0.09s  SoC_end= 6.75 kWh
+  window  22: t= 6048.. 6624 commit 288  obj=  -49.924  solve= 0.09s  SoC_end= 6.75 kWh
+  window  23: t= 6336.. 6912 commit 288  obj=    0.000  solve= 0.09s  SoC_end= 6.75 kWh
+  window  24: t= 6624.. 7200 commit 288  obj=    0.000  solve= 0.09s  SoC_end= 6.75 kWh
+  window  25: t= 6912.. 7488 commit 288  obj=    0.000  solve= 0.09s  SoC_end= 6.75 kWh
+  window  26: t= 7200.. 7776 commit 288  obj=    0.000  solve= 0.09s  SoC_end= 6.75 kWh
+  window  27: t= 7488.. 8064 commit 288  obj=    0.000  solve= 0.09s  SoC_end= 6.75 kWh
+  window  28: t= 7776.. 8352 commit 288  obj=   -0.106  solve= 0.10s  SoC_end= 7.73 kWh
+  window  29: t= 8064.. 8640 commit 288  obj=   -0.196  solve= 0.09s  SoC_end= 6.75 kWh
+  window  30: t= 8352.. 8928 commit 288  obj=    0.000  solve= 0.09s  SoC_end= 6.75 kWh
+  window  31: t= 8640.. 8928 commit 288  obj=    0.000  solve= 0.04s  SoC_end= 6.75 kWh
+--------------------------------------------
+  bess_only_J1_R12000
+--------------------------------------------
+Grid cost:                    $    -0.28
+Grid revenue:                 $   103.69
+Net profit excl. degradation: $   103.98
+Degradation cost (model):     $     5.90   (optimiser's internal PWL cost)
+Degradation cost (rainflow):  $     1.68   rel. error 2.520
+Net profit incl. degradation: $   102.30   (uses rainflow cost at R_cell=12000)
+Life loss: 0.014%   rainflow cycles: 7.0   mean depth 0.13   EFC 0.9
+Final SoC: 6.75 kWh   solve time 2.8s
+
+=== MILP run: bess_only_J2_R12000 (8928 intervals, window 48.0h / step 24.0h, HiGHS) ===
+    segment costs c_j ($/kWh): [0.2418, 0.7457]
+  window   1: t=    0..  576 commit 288  obj=   -1.093  solve= 0.26s  SoC_end= 5.96 kWh
+  window   2: t=  288..  864 commit 288  obj=    0.059  solve= 0.16s  SoC_end= 6.75 kWh
+  window   3: t=  576.. 1152 commit 288  obj=    0.000  solve= 0.15s  SoC_end= 6.75 kWh
+  window   4: t=  864.. 1440 commit 288  obj=    0.000  solve= 0.12s  SoC_end= 6.75 kWh
+  window   5: t= 1152.. 1728 commit 288  obj=    0.000  solve= 0.14s  SoC_end= 6.75 kWh
+  window   6: t= 1440.. 2016 commit 288  obj=    0.000  solve= 0.14s  SoC_end= 6.75 kWh
+  window   7: t= 1728.. 2304 commit 288  obj=    0.000  solve= 0.14s  SoC_end= 6.75 kWh
+  window   8: t= 2016.. 2592 commit 288  obj=    0.000  solve= 0.16s  SoC_end= 6.75 kWh
+  window   9: t= 2304.. 2880 commit 288  obj=    0.000  solve= 0.14s  SoC_end= 6.75 kWh
+  window  10: t= 2592.. 3168 commit 288  obj=    0.000  solve= 0.12s  SoC_end= 6.75 kWh
+  window  11: t= 2880.. 3456 commit 288  obj=    0.000  solve= 0.13s  SoC_end= 6.75 kWh
+  window  12: t= 3168.. 3744 commit 288  obj=   -0.119  solve= 0.13s  SoC_end= 7.14 kWh
+  window  13: t= 3456.. 4032 commit 288  obj=   -0.977  solve= 0.37s  SoC_end= 9.14 kWh
+  window  14: t= 3744.. 4320 commit 288  obj=  -48.458  solve= 0.13s  SoC_end= 7.58 kWh
+  window  15: t= 4032.. 4608 commit 288  obj=  -47.534  solve= 0.14s  SoC_end= 6.29 kWh
+  window  16: t= 4320.. 4896 commit 288  obj=    0.030  solve= 0.27s  SoC_end= 6.29 kWh
+  window  17: t= 4608.. 5184 commit 288  obj=    0.029  solve= 0.26s  SoC_end= 6.29 kWh
+  window  18: t= 4896.. 5472 commit 288  obj=    0.029  solve= 0.26s  SoC_end= 6.75 kWh
+  window  19: t= 5184.. 5760 commit 288  obj=    0.000  solve= 0.13s  SoC_end= 6.75 kWh
+  window  20: t= 5472.. 6048 commit 288  obj=    0.000  solve= 0.12s  SoC_end= 6.75 kWh
+  window  21: t= 5760.. 6336 commit 288  obj=  -51.637  solve= 0.13s  SoC_end= 6.75 kWh
+  window  22: t= 6048.. 6624 commit 288  obj=  -51.637  solve= 0.14s  SoC_end= 6.75 kWh
+  window  23: t= 6336.. 6912 commit 288  obj=    0.000  solve= 0.13s  SoC_end= 6.75 kWh
+  window  24: t= 6624.. 7200 commit 288  obj=    0.000  solve= 0.13s  SoC_end= 6.75 kWh
+  window  25: t= 6912.. 7488 commit 288  obj=    0.000  solve= 0.12s  SoC_end= 6.75 kWh
+  window  26: t= 7200.. 7776 commit 288  obj=    0.000  solve= 0.14s  SoC_end= 6.75 kWh
+  window  27: t= 7488.. 8064 commit 288  obj=    0.000  solve= 0.13s  SoC_end= 6.75 kWh
+  window  28: t= 7776.. 8352 commit 288  obj=   -0.338  solve= 0.14s  SoC_end= 7.73 kWh
+  window  29: t= 8064.. 8640 commit 288  obj=   -0.428  solve= 0.14s  SoC_end= 6.75 kWh
+  window  30: t= 8352.. 8928 commit 288  obj=    0.000  solve= 0.13s  SoC_end= 6.75 kWh
+  window  31: t= 8640.. 8928 commit 288  obj=    0.000  solve= 0.07s  SoC_end= 6.75 kWh
+--------------------------------------------
+  bess_only_J2_R12000
+--------------------------------------------
+Grid cost:                    $     0.35
+Grid revenue:                 $   106.27
+Net profit excl. degradation: $   105.91
+Degradation cost (model):     $     4.45   (optimiser's internal PWL cost)
+Degradation cost (rainflow):  $     2.94   rel. error 0.515
+Net profit incl. degradation: $   102.98   (uses rainflow cost at R_cell=12000)
+Life loss: 0.024%   rainflow cycles: 11.0   mean depth 0.13   EFC 1.4
+Final SoC: 6.75 kWh   solve time 4.9s
+
+=== MILP run: bess_only_J4_R12000 (8928 intervals, window 48.0h / step 24.0h, HiGHS) ===
+    segment costs c_j ($/kWh): [0.1184, 0.3652, 0.6178, 0.8736]
+  window   1: t=    0..  576 commit 288  obj=   -1.217  solve= 0.43s  SoC_end= 5.96 kWh
+  window   2: t=  288..  864 commit 288  obj=   -0.367  solve= 0.49s  SoC_end= 8.78 kWh
+  window   3: t=  576.. 1152 commit 288  obj=   -0.590  solve= 0.40s  SoC_end= 5.41 kWh
+  window   4: t=  864.. 1440 commit 288  obj=    0.076  solve= 0.41s  SoC_end= 5.41 kWh
+  window   5: t= 1152.. 1728 commit 288  obj=   -0.116  solve= 0.40s  SoC_end= 8.70 kWh
+  window   6: t= 1440.. 2016 commit 288  obj=   -0.458  solve= 0.35s  SoC_end= 8.31 kWh
+  window   7: t= 1728.. 2304 commit 288  obj=   -0.302  solve= 0.36s  SoC_end= 6.75 kWh
+  window   8: t= 2016.. 2592 commit 288  obj=   -0.210  solve= 0.52s  SoC_end= 9.11 kWh
+  window   9: t= 2304.. 2880 commit 288  obj=   -0.410  solve= 0.52s  SoC_end= 6.75 kWh
+  window  10: t= 2592.. 3168 commit 288  obj=    0.000  solve= 0.35s  SoC_end= 6.75 kWh
+  window  11: t= 2880.. 3456 commit 288  obj=   -0.012  solve= 0.36s  SoC_end= 7.33 kWh
+  window  12: t= 3168.. 3744 commit 288  obj=   -0.720  solve= 1.33s  SoC_end=10.08 kWh
+  window  13: t= 3456.. 4032 commit 288  obj=   -1.914  solve= 0.50s  SoC_end= 6.75 kWh
+  window  14: t= 3744.. 4320 commit 288  obj=  -49.014  solve= 0.52s  SoC_end= 6.75 kWh
+  window  15: t= 4032.. 4608 commit 288  obj=  -48.090  solve= 0.73s  SoC_end= 6.75 kWh
+  window  16: t= 4320.. 4896 commit 288  obj=   -0.042  solve= 0.77s  SoC_end= 6.75 kWh
+  window  17: t= 4608.. 5184 commit 288  obj=    0.000  solve= 0.35s  SoC_end= 6.75 kWh
+  window  18: t= 4896.. 5472 commit 288  obj=   -0.096  solve= 0.52s  SoC_end= 7.93 kWh
+  window  19: t= 5184.. 5760 commit 288  obj=   -0.497  solve= 0.51s  SoC_end= 6.75 kWh
+  window  20: t= 5472.. 6048 commit 288  obj=   -0.588  solve= 0.61s  SoC_end= 6.75 kWh
+  window  21: t= 5760.. 6336 commit 288  obj=  -53.006  solve= 0.52s  SoC_end= 6.75 kWh
+  window  22: t= 6048.. 6624 commit 288  obj=  -52.741  solve= 0.39s  SoC_end= 6.75 kWh
+  window  23: t= 6336.. 6912 commit 288  obj=   -0.243  solve= 0.37s  SoC_end= 7.32 kWh
+  window  24: t= 6624.. 7200 commit 288  obj=   -0.288  solve= 0.37s  SoC_end= 6.75 kWh
+  window  25: t= 6912.. 7488 commit 288  obj=    0.000  solve= 0.36s  SoC_end= 6.75 kWh
+  window  26: t= 7200.. 7776 commit 288  obj=   -0.176  solve= 0.52s  SoC_end=10.12 kWh
+  window  27: t= 7488.. 8064 commit 288  obj=   -0.451  solve= 0.39s  SoC_end= 6.75 kWh
+  window  28: t= 7776.. 8352 commit 288  obj=   -0.581  solve= 0.52s  SoC_end= 8.72 kWh
+  window  29: t= 8064.. 8640 commit 288  obj=   -0.763  solve= 0.51s  SoC_end= 6.75 kWh
+  window  30: t= 8352.. 8928 commit 288  obj=    0.000  solve= 0.36s  SoC_end= 6.75 kWh
+  window  31: t= 8640.. 8928 commit 288  obj=    0.000  solve= 0.13s  SoC_end= 6.75 kWh
+--------------------------------------------
+  bess_only_J4_R12000
+--------------------------------------------
+Grid cost:                    $     4.77
+Grid revenue:                 $   118.74
+Net profit excl. degradation: $   113.97
+Degradation cost (model):     $     7.62   (optimiser's internal PWL cost)
+Degradation cost (rainflow):  $     6.77   rel. error 0.125
+Net profit incl. degradation: $   107.20   (uses rainflow cost at R_cell=12000)
+Life loss: 0.056%   rainflow cycles: 28.0   mean depth 0.18   EFC 4.8
+Final SoC: 6.75 kWh   solve time 14.8s
+
+=== MILP run: bess_only_J8_R12000 (8928 intervals, window 48.0h / step 24.0h, HiGHS) ===
+    segment costs c_j ($/kWh): [0.058, 0.1788, 0.3025, 0.4278, 0.5542, 0.6814, 0.8093, 0.9378]
+  window   1: t=    0..  576 commit 288  obj=   -1.311  solve= 0.68s  SoC_end= 5.96 kWh
+  window   2: t=  288..  864 commit 288  obj=   -0.468  solve= 0.55s  SoC_end= 7.65 kWh
+  window   3: t=  576.. 1152 commit 288  obj=   -0.644  solve= 0.98s  SoC_end= 4.54 kWh
+  window   4: t=  864.. 1440 commit 288  obj=   -0.037  solve= 0.76s  SoC_end= 4.54 kWh
+  window   5: t= 1152.. 1728 commit 288  obj=   -0.186  solve= 0.58s  SoC_end= 7.01 kWh
+  window   6: t= 1440.. 2016 commit 288  obj=   -0.473  solve= 0.57s  SoC_end= 7.93 kWh
+  window   7: t= 1728.. 2304 commit 288  obj=   -0.401  solve= 0.61s  SoC_end= 6.75 kWh
+  window   8: t= 2016.. 2592 commit 288  obj=   -0.228  solve= 0.55s  SoC_end= 7.91 kWh
+  window   9: t= 2304.. 2880 commit 288  obj=   -0.377  solve= 0.55s  SoC_end= 6.75 kWh
+  window  10: t= 2592.. 3168 commit 288  obj=   -0.067  solve= 1.41s  SoC_end= 6.75 kWh
+  window  11: t= 2880.. 3456 commit 288  obj=   -0.106  solve= 1.58s  SoC_end= 6.75 kWh
+  window  12: t= 3168.. 3744 commit 288  obj=   -0.799  solve= 0.82s  SoC_end= 8.44 kWh
+  window  13: t= 3456.. 4032 commit 288  obj=   -1.941  solve= 1.43s  SoC_end= 7.01 kWh
+  window  14: t= 3744.. 4320 commit 288  obj=  -49.179  solve= 0.79s  SoC_end= 6.75 kWh
+  window  15: t= 4032.. 4608 commit 288  obj=  -48.272  solve= 0.83s  SoC_end= 6.75 kWh
+  window  16: t= 4320.. 4896 commit 288  obj=   -0.136  solve= 0.83s  SoC_end= 6.75 kWh
+  window  17: t= 4608.. 5184 commit 288  obj=    0.000  solve= 0.48s  SoC_end= 6.75 kWh
+  window  18: t= 4896.. 5472 commit 288  obj=   -0.152  solve= 0.56s  SoC_end= 7.93 kWh
+  window  19: t= 5184.. 5760 commit 288  obj=   -0.562  solve= 0.74s  SoC_end= 8.44 kWh
+  window  20: t= 5472.. 6048 commit 288  obj=   -0.716  solve= 1.30s  SoC_end= 6.75 kWh
+  window  21: t= 5760.. 6336 commit 288  obj=  -53.307  solve= 1.38s  SoC_end= 6.75 kWh
+  window  22: t= 6048.. 6624 commit 288  obj=  -53.060  solve= 1.26s  SoC_end= 6.75 kWh
+  window  23: t= 6336.. 6912 commit 288  obj=   -0.288  solve= 0.53s  SoC_end= 8.03 kWh
+  window  24: t= 6624.. 7200 commit 288  obj=   -0.378  solve= 0.55s  SoC_end= 6.75 kWh
+  window  25: t= 6912.. 7488 commit 288  obj=    0.000  solve= 0.51s  SoC_end= 6.75 kWh
+  window  26: t= 7200.. 7776 commit 288  obj=   -0.210  solve= 0.50s  SoC_end= 8.70 kWh
+  window  27: t= 7488.. 8064 commit 288  obj=   -0.376  solve= 0.52s  SoC_end= 6.75 kWh
+  window  28: t= 7776.. 8352 commit 288  obj=   -0.644  solve= 0.95s  SoC_end= 7.91 kWh
+  window  29: t= 8064.. 8640 commit 288  obj=   -0.766  solve= 0.63s  SoC_end= 6.75 kWh
+  window  30: t= 8352.. 8928 commit 288  obj=   -0.035  solve= 0.56s  SoC_end= 6.75 kWh
+  window  31: t= 8640.. 8928 commit 288  obj=   -0.017  solve= 0.23s  SoC_end= 6.75 kWh
+--------------------------------------------
+  bess_only_J8_R12000
+--------------------------------------------
+Grid cost:                    $     5.29
+Grid revenue:                 $   118.71
+Net profit excl. degradation: $   113.41
+Degradation cost (model):     $     5.58   (optimiser's internal PWL cost)
+Degradation cost (rainflow):  $     5.22   rel. error 0.069
+Net profit incl. degradation: $   108.19   (uses rainflow cost at R_cell=12000)
+Life loss: 0.043%   rainflow cycles: 45.0   mean depth 0.12   EFC 5.0
+Final SoC: 6.75 kWh   solve time 24.2s
+
+=== MILP run: bess_only_J16_R12000 (8928 intervals, window 48.0h / step 24.0h, HiGHS) ===
+    segment costs c_j ($/kWh): [0.0284, 0.0876, 0.1482, 0.2095, 0.2714, 0.3337, 0.3963, 0.4593, 0.5225, 0.5859, 0.6495, 0.7133, 0.7772, 0.8414, 0.9056, 0.97]
+  window   1: t=    0..  576 commit 288  obj=   -1.333  solve= 0.93s  SoC_end= 5.79 kWh
+  window   2: t=  288..  864 commit 288  obj=   -0.508  solve= 1.02s  SoC_end= 7.48 kWh
+  window   3: t=  576.. 1152 commit 288  obj=   -0.689  solve= 1.35s  SoC_end= 4.42 kWh
+  window   4: t=  864.. 1440 commit 288  obj=   -0.043  solve= 1.14s  SoC_end= 4.42 kWh
+  window   5: t= 1152.. 1728 commit 288  obj=   -0.229  solve= 1.30s  SoC_end= 7.86 kWh
+  window   6: t= 1440.. 2016 commit 288  obj=   -0.616  solve= 1.23s  SoC_end= 7.93 kWh
+  window   7: t= 1728.. 2304 commit 288  obj=   -0.441  solve= 1.31s  SoC_end= 6.75 kWh
+  window   8: t= 2016.. 2592 commit 288  obj=   -0.255  solve= 2.66s  SoC_end= 8.26 kWh
+  window   9: t= 2304.. 2880 commit 288  obj=   -0.432  solve= 2.70s  SoC_end= 6.75 kWh
+  window  10: t= 2592.. 3168 commit 288  obj=   -0.094  solve= 0.97s  SoC_end= 6.75 kWh
+  window  11: t= 2880.. 3456 commit 288  obj=   -0.128  solve= 0.98s  SoC_end= 7.09 kWh
+  window  12: t= 3168.. 3744 commit 288  obj=   -0.864  solve= 1.37s  SoC_end= 8.44 kWh
+  window  13: t= 3456.. 4032 commit 288  obj=   -2.017  solve= 1.56s  SoC_end= 6.75 kWh
+  window  14: t= 3744.. 4320 commit 288  obj=  -49.266  solve= 1.46s  SoC_end= 6.75 kWh
+  window  15: t= 4032.. 4608 commit 288  obj=  -48.359  solve= 2.63s  SoC_end= 6.75 kWh
+  window  16: t= 4320.. 4896 commit 288  obj=   -0.157  solve= 1.01s  SoC_end= 6.75 kWh
+  window  17: t= 4608.. 5184 commit 288  obj=   -0.033  solve= 0.97s  SoC_end= 6.75 kWh
+  window  18: t= 4896.. 5472 commit 288  obj=   -0.159  solve= 1.05s  SoC_end= 7.09 kWh
+  window  19: t= 5184.. 5760 commit 288  obj=   -0.503  solve= 0.97s  SoC_end= 8.44 kWh
+  window  20: t= 5472.. 6048 commit 288  obj=   -0.723  solve= 1.07s  SoC_end= 7.14 kWh
+  window  21: t= 5760.. 6336 commit 288  obj=  -53.455  solve= 1.06s  SoC_end= 6.75 kWh
+  window  22: t= 6048.. 6624 commit 288  obj=  -53.188  solve= 1.41s  SoC_end= 6.75 kWh
+  window  23: t= 6336.. 6912 commit 288  obj=   -0.328  solve= 1.12s  SoC_end= 6.92 kWh
+  window  24: t= 6624.. 7200 commit 288  obj=   -0.319  solve= 1.14s  SoC_end= 6.75 kWh
+  window  25: t= 6912.. 7488 commit 288  obj=   -0.015  solve= 1.00s  SoC_end= 6.75 kWh
+  window  26: t= 7200.. 7776 commit 288  obj=   -0.226  solve= 1.03s  SoC_end= 9.28 kWh
+  window  27: t= 7488.. 8064 commit 288  obj=   -0.460  solve= 0.99s  SoC_end= 6.75 kWh
+  window  28: t= 7776.. 8352 commit 288  obj=   -0.690  solve= 1.03s  SoC_end= 7.86 kWh
+  window  29: t= 8064.. 8640 commit 288  obj=   -0.823  solve= 0.98s  SoC_end= 6.75 kWh
+  window  30: t= 8352.. 8928 commit 288  obj=   -0.096  solve= 0.99s  SoC_end= 6.75 kWh
+  window  31: t= 8640.. 8928 commit 288  obj=   -0.038  solve= 0.36s  SoC_end= 6.75 kWh
+--------------------------------------------
+  bess_only_J16_R12000
+--------------------------------------------
+Grid cost:                    $     6.05
+Grid revenue:                 $   119.59
+Net profit excl. degradation: $   113.55
+Degradation cost (model):     $     5.03   (optimiser's internal PWL cost)
+Degradation cost (rainflow):  $     5.16   rel. error 0.026
+Net profit incl. degradation: $   108.39   (uses rainflow cost at R_cell=12000)
+Life loss: 0.043%   rainflow cycles: 57.5   mean depth 0.10   EFC 5.4
+Final SoC: 6.75 kWh   solve time 38.8s
+
+=== MILP run: household_J1_R0 (8928 intervals, window 48.0h / step 24.0h, HiGHS) ===
+    segment costs c_j ($/kWh): [0.0]
+  window   1: t=    0..  576 commit 288  obj=    2.948  solve= 0.19s  SoC_end= 0.00 kWh
+  window   2: t=  288..  864 commit 288  obj=   -1.247  solve= 0.19s  SoC_end= 3.50 kWh
+  window   3: t=  576.. 1152 commit 288  obj=   -2.529  solve= 0.21s  SoC_end= 0.42 kWh
+  window   4: t=  864.. 1440 commit 288  obj=    3.044  solve= 0.24s  SoC_end= 0.00 kWh
+  window   5: t= 1152.. 1728 commit 288  obj=    5.724  solve= 0.21s  SoC_end= 0.00 kWh
+  window   6: t= 1440.. 2016 commit 288  obj=    3.759  solve= 0.17s  SoC_end= 0.00 kWh
+  window   7: t= 1728.. 2304 commit 288  obj=    2.096  solve= 0.18s  SoC_end= 2.90 kWh
+  window   8: t= 2016.. 2592 commit 288  obj=    1.050  solve= 0.19s  SoC_end= 6.07 kWh
+  window   9: t= 2304.. 2880 commit 288  obj=   -1.738  solve= 0.21s  SoC_end= 1.28 kWh
+  window  10: t= 2592.. 3168 commit 288  obj=    0.271  solve= 0.19s  SoC_end= 1.74 kWh
+  window  11: t= 2880.. 3456 commit 288  obj=    0.678  solve= 0.21s  SoC_end= 1.08 kWh
+  window  12: t= 3168.. 3744 commit 288  obj=    2.735  solve= 0.27s  SoC_end= 4.71 kWh
+  window  13: t= 3456.. 4032 commit 288  obj=    4.473  solve= 0.21s  SoC_end= 0.00 kWh
+  window  14: t= 3744.. 4320 commit 288  obj=  -36.067  solve= 0.26s  SoC_end= 0.00 kWh
+  window  15: t= 4032.. 4608 commit 288  obj=  -38.190  solve= 0.22s  SoC_end= 0.77 kWh
+  window  16: t= 4320.. 4896 commit 288  obj=    1.259  solve= 0.19s  SoC_end= 1.46 kWh
+  window  17: t= 4608.. 5184 commit 288  obj=    0.559  solve= 0.20s  SoC_end= 0.59 kWh
+  window  18: t= 4896.. 5472 commit 288  obj=   -1.190  solve= 0.98s  SoC_end= 1.89 kWh
+  window  19: t= 5184.. 5760 commit 288  obj=   -2.918  solve= 5.97s  SoC_end= 1.81 kWh
+  window  20: t= 5472.. 6048 commit 288  obj=   -5.950  solve= 0.44s  SoC_end= 0.03 kWh
+  window  21: t= 5760.. 6336 commit 288  obj=  -62.915  solve= 0.18s  SoC_end= 0.00 kWh
+  window  22: t= 6048.. 6624 commit 288  obj=  -60.740  solve= 0.24s  SoC_end= 0.00 kWh
+  window  23: t= 6336.. 6912 commit 288  obj=   -3.651  solve= 0.27s  SoC_end= 8.62 kWh
+  window  24: t= 6624.. 7200 commit 288  obj=   -2.785  solve= 0.82s  SoC_end= 1.84 kWh
+  window  25: t= 6912.. 7488 commit 288  obj=    2.029  solve= 0.65s  SoC_end= 2.00 kWh
+  window  26: t= 7200.. 7776 commit 288  obj=    4.988  solve= 0.30s  SoC_end= 2.13 kWh
+  window  27: t= 7488.. 8064 commit 288  obj=   10.252  solve= 0.24s  SoC_end= 0.11 kWh
+  window  28: t= 7776.. 8352 commit 288  obj=    5.619  solve= 0.27s  SoC_end= 1.34 kWh
+  window  29: t= 8064.. 8640 commit 288  obj=   -0.223  solve= 0.25s  SoC_end= 0.71 kWh
+  window  30: t= 8352.. 8928 commit 288  obj=    3.080  solve= 0.18s  SoC_end= 2.11 kWh
+  window  31: t= 8640.. 8928 commit 288  obj=    1.869  solve= 0.10s  SoC_end= 6.75 kWh
+--------------------------------------------
+  household_J1_R0
+--------------------------------------------
+Grid cost:                    $    54.49
+Grid revenue:                 $   149.54
+Net profit excl. degradation: $    95.04
+Degradation cost (model):     $     0.00   (optimiser's internal PWL cost)
+Degradation cost (rainflow):  $   194.62   rel. error nan
+Net profit incl. degradation: $   -99.58   (uses rainflow cost at R_cell=12000)
+Life loss: 1.622%   rainflow cycles: 366.5   mean depth 0.12   EFC 42.4
+Final SoC: 6.75 kWh   solve time 14.4s
+
+=== MILP run: household_J1_R12000 (8928 intervals, window 48.0h / step 24.0h, HiGHS) ===
+    segment costs c_j ($/kWh): [0.4937]
+  window   1: t=    0..  576 commit 288  obj=    8.735  solve= 0.09s  SoC_end=11.72 kWh
+  window   2: t=  288..  864 commit 288  obj=    3.021  solve= 0.10s  SoC_end=12.71 kWh
+  window   3: t=  576.. 1152 commit 288  obj=    4.909  solve= 0.10s  SoC_end=12.71 kWh
+  window   4: t=  864.. 1440 commit 288  obj=    9.086  solve= 0.10s  SoC_end=12.71 kWh
+  window   5: t= 1152.. 1728 commit 288  obj=    9.971  solve= 0.09s  SoC_end=13.50 kWh
+  window   6: t= 1440.. 2016 commit 288  obj=    6.140  solve= 0.09s  SoC_end=13.50 kWh
+  window   7: t= 1728.. 2304 commit 288  obj=    3.188  solve= 0.09s  SoC_end=13.50 kWh
+  window   8: t= 2016.. 2592 commit 288  obj=    3.216  solve= 0.09s  SoC_end=13.50 kWh
+  window   9: t= 2304.. 2880 commit 288  obj=    2.368  solve= 0.09s  SoC_end=13.50 kWh
+  window  10: t= 2592.. 3168 commit 288  obj=    3.836  solve= 0.10s  SoC_end=13.50 kWh
+  window  11: t= 2880.. 3456 commit 288  obj=    5.209  solve= 0.11s  SoC_end=13.50 kWh
+  window  12: t= 3168.. 3744 commit 288  obj=    8.416  solve= 0.09s  SoC_end=13.50 kWh
+  window  13: t= 3456.. 4032 commit 288  obj=   11.496  solve= 0.10s  SoC_end=13.50 kWh
+  window  14: t= 3744.. 4320 commit 288  obj=  -29.721  solve= 0.10s  SoC_end=11.55 kWh
+  window  15: t= 4032.. 4608 commit 288  obj=  -33.088  solve= 0.10s  SoC_end= 8.70 kWh
+  window  16: t= 4320.. 4896 commit 288  obj=    3.508  solve= 0.09s  SoC_end= 9.31 kWh
+  window  17: t= 4608.. 5184 commit 288  obj=    3.084  solve= 0.10s  SoC_end= 9.94 kWh
+  window  18: t= 4896.. 5472 commit 288  obj=    2.906  solve= 0.10s  SoC_end=10.72 kWh
+  window  19: t= 5184.. 5760 commit 288  obj=    3.144  solve= 0.10s  SoC_end=13.50 kWh
+  window  20: t= 5472.. 6048 commit 288  obj=    1.096  solve= 0.11s  SoC_end=13.50 kWh
+  window  21: t= 5760.. 6336 commit 288  obj=  -53.126  solve= 0.12s  SoC_end=13.50 kWh
+  window  22: t= 6048.. 6624 commit 288  obj=  -52.219  solve= 0.12s  SoC_end= 8.87 kWh
+  window  23: t= 6336.. 6912 commit 288  obj=    0.509  solve= 0.11s  SoC_end=11.35 kWh
+  window  24: t= 6624.. 7200 commit 288  obj=    3.366  solve= 0.10s  SoC_end=11.59 kWh
+  window  25: t= 6912.. 7488 commit 288  obj=    6.126  solve= 0.10s  SoC_end=13.50 kWh
+  window  26: t= 7200.. 7776 commit 288  obj=    7.929  solve= 0.09s  SoC_end=13.50 kWh
+  window  27: t= 7488.. 8064 commit 288  obj=   13.611  solve= 0.09s  SoC_end=13.50 kWh
+  window  28: t= 7776.. 8352 commit 288  obj=    9.020  solve= 0.10s  SoC_end=13.50 kWh
+  window  29: t= 8064.. 8640 commit 288  obj=    3.169  solve= 0.09s  SoC_end=12.52 kWh
+  window  30: t= 8352.. 8928 commit 288  obj=    5.108  solve= 0.09s  SoC_end=13.12 kWh
+  window  31: t= 8640.. 8928 commit 288  obj=    2.537  solve= 0.04s  SoC_end=13.50 kWh
+--------------------------------------------
+  household_J1_R12000
+--------------------------------------------
+Grid cost:                    $    94.08
+Grid revenue:                 $   108.48
+Net profit excl. degradation: $    14.40
+Degradation cost (model):     $     6.47   (optimiser's internal PWL cost)
+Degradation cost (rainflow):  $     2.40   rel. error 1.703
+Net profit incl. degradation: $    12.00   (uses rainflow cost at R_cell=12000)
+Life loss: 0.020%   rainflow cycles: 13.5   mean depth 0.09   EFC 1.0
+Final SoC: 13.50 kWh   solve time 3.0s
+
+=== MILP run: household_J2_R12000 (8928 intervals, window 48.0h / step 24.0h, HiGHS) ===
+    segment costs c_j ($/kWh): [0.2418, 0.7457]
+  window   1: t=    0..  576 commit 288  obj=    8.163  solve= 0.20s  SoC_end= 6.75 kWh
+  window   2: t=  288..  864 commit 288  obj=    2.491  solve= 0.20s  SoC_end= 9.31 kWh
+  window   3: t=  576.. 1152 commit 288  obj=    4.178  solve= 0.17s  SoC_end= 6.75 kWh
+  window   4: t=  864.. 1440 commit 288  obj=    8.437  solve= 0.19s  SoC_end= 6.75 kWh
+  window   5: t= 1152.. 1728 commit 288  obj=    9.463  solve= 0.19s  SoC_end= 9.84 kWh
+  window   6: t= 1440.. 2016 commit 288  obj=    5.860  solve= 0.17s  SoC_end= 8.73 kWh
+  window   7: t= 1728.. 2304 commit 288  obj=    3.026  solve= 0.17s  SoC_end= 7.02 kWh
+  window   8: t= 2016.. 2592 commit 288  obj=    3.047  solve= 0.18s  SoC_end= 7.96 kWh
+  window   9: t= 2304.. 2880 commit 288  obj=    2.151  solve= 0.22s  SoC_end= 7.16 kWh
+  window  10: t= 2592.. 3168 commit 288  obj=    3.714  solve= 0.20s  SoC_end= 8.09 kWh
+  window  11: t= 2880.. 3456 commit 288  obj=    5.014  solve= 0.21s  SoC_end= 7.91 kWh
+  window  12: t= 3168.. 3744 commit 288  obj=    7.225  solve= 0.22s  SoC_end=12.23 kWh
+  window  13: t= 3456.. 4032 commit 288  obj=    9.751  solve= 0.18s  SoC_end= 7.05 kWh
+  window  14: t= 3744.. 4320 commit 288  obj=  -31.337  solve= 0.18s  SoC_end= 7.04 kWh
+  window  15: t= 4032.. 4608 commit 288  obj=  -34.135  solve= 0.18s  SoC_end= 6.75 kWh
+  window  16: t= 4320.. 4896 commit 288  obj=    3.481  solve= 0.18s  SoC_end= 6.75 kWh
+  window  17: t= 4608.. 5184 commit 288  obj=    2.991  solve= 0.17s  SoC_end= 6.75 kWh
+  window  18: t= 4896.. 5472 commit 288  obj=    2.753  solve= 0.18s  SoC_end= 6.90 kWh
+  window  19: t= 5184.. 5760 commit 288  obj=    2.470  solve= 0.18s  SoC_end= 8.99 kWh
+  window  20: t= 5472.. 6048 commit 288  obj=   -0.011  solve= 0.28s  SoC_end= 6.75 kWh
+  window  21: t= 5760.. 6336 commit 288  obj=  -55.797  solve= 0.23s  SoC_end= 6.75 kWh
+  window  22: t= 6048.. 6624 commit 288  obj=  -54.429  solve= 0.22s  SoC_end= 6.75 kWh
+  window  23: t= 6336.. 6912 commit 288  obj=    0.272  solve= 0.21s  SoC_end=11.67 kWh
+  window  24: t= 6624.. 7200 commit 288  obj=    3.086  solve= 0.17s  SoC_end= 9.08 kWh
+  window  25: t= 6912.. 7488 commit 288  obj=    6.029  solve= 0.23s  SoC_end=12.93 kWh
+  window  26: t= 7200.. 7776 commit 288  obj=    7.613  solve= 0.17s  SoC_end=13.35 kWh
+  window  27: t= 7488.. 8064 commit 288  obj=   13.259  solve= 0.18s  SoC_end= 9.95 kWh
+  window  28: t= 7776.. 8352 commit 288  obj=    8.531  solve= 0.28s  SoC_end= 9.54 kWh
+  window  29: t= 8064.. 8640 commit 288  obj=    2.683  solve= 0.19s  SoC_end= 6.78 kWh
+  window  30: t= 8352.. 8928 commit 288  obj=    5.079  solve= 0.17s  SoC_end= 7.36 kWh
+  window  31: t= 8640.. 8928 commit 288  obj=    2.531  solve= 0.08s  SoC_end= 7.28 kWh
+--------------------------------------------
+  household_J2_R12000
+--------------------------------------------
+Grid cost:                    $    76.11
+Grid revenue:                 $   119.63
+Net profit excl. degradation: $    43.52
+Degradation cost (model):     $    26.09   (optimiser's internal PWL cost)
+Degradation cost (rainflow):  $    22.61   rel. error 0.154
+Net profit incl. degradation: $    20.91   (uses rainflow cost at R_cell=12000)
+Life loss: 0.188%   rainflow cycles: 37.5   mean depth 0.23   EFC 8.0
+Final SoC: 7.28 kWh   solve time 6.0s
+
+=== MILP run: household_J4_R12000 (8928 intervals, window 48.0h / step 24.0h, HiGHS) ===
+    segment costs c_j ($/kWh): [0.1184, 0.3652, 0.6178, 0.8736]
+  window   1: t=    0..  576 commit 288  obj=    7.268  solve= 0.35s  SoC_end=10.12 kWh
+  window   2: t=  288..  864 commit 288  obj=    1.678  solve= 0.45s  SoC_end=11.97 kWh
+  window   3: t=  576.. 1152 commit 288  obj=    3.128  solve= 0.36s  SoC_end=10.12 kWh
+  window   4: t=  864.. 1440 commit 288  obj=    7.893  solve= 0.40s  SoC_end=10.12 kWh
+  window   5: t= 1152.. 1728 commit 288  obj=    8.831  solve= 0.35s  SoC_end=10.12 kWh
+  window   6: t= 1440.. 2016 commit 288  obj=    5.430  solve= 0.33s  SoC_end=11.43 kWh
+  window   7: t= 1728.. 2304 commit 288  obj=    2.634  solve= 0.33s  SoC_end=10.12 kWh
+  window   8: t= 2016.. 2592 commit 288  obj=    2.524  solve= 0.36s  SoC_end=11.48 kWh
+  window   9: t= 2304.. 2880 commit 288  obj=    1.318  solve= 0.37s  SoC_end=10.59 kWh
+  window  10: t= 2592.. 3168 commit 288  obj=    2.954  solve= 0.39s  SoC_end=10.84 kWh
+  window  11: t= 2880.. 3456 commit 288  obj=    4.239  solve= 0.39s  SoC_end=10.17 kWh
+  window  12: t= 3168.. 3744 commit 288  obj=    6.689  solve= 0.42s  SoC_end=10.88 kWh
+  window  13: t= 3456.. 4032 commit 288  obj=    9.263  solve= 0.39s  SoC_end= 8.05 kWh
+  window  14: t= 3744.. 4320 commit 288  obj=  -32.291  solve= 0.33s  SoC_end= 6.75 kWh
+  window  15: t= 4032.. 4608 commit 288  obj=  -34.966  solve= 0.35s  SoC_end= 7.33 kWh
+  window  16: t= 4320.. 4896 commit 288  obj=    3.079  solve= 0.51s  SoC_end= 6.77 kWh
+  window  17: t= 4608.. 5184 commit 288  obj=    2.685  solve= 0.42s  SoC_end= 6.75 kWh
+  window  18: t= 4896.. 5472 commit 288  obj=    2.095  solve= 0.48s  SoC_end= 8.27 kWh
+  window  19: t= 5184.. 5760 commit 288  obj=    1.796  solve= 0.35s  SoC_end=10.20 kWh
+  window  20: t= 5472.. 6048 commit 288  obj=   -0.337  solve= 0.35s  SoC_end=10.12 kWh
+  window  21: t= 5760.. 6336 commit 288  obj=  -56.751  solve= 0.36s  SoC_end=10.12 kWh
+  window  22: t= 6048.. 6624 commit 288  obj=  -55.381  solve= 0.36s  SoC_end=10.12 kWh
+  window  23: t= 6336.. 6912 commit 288  obj=   -0.421  solve= 0.43s  SoC_end=11.57 kWh
+  window  24: t= 6624.. 7200 commit 288  obj=    2.239  solve= 0.47s  SoC_end=10.12 kWh
+  window  25: t= 6912.. 7488 commit 288  obj=    5.574  solve= 0.36s  SoC_end=10.12 kWh
+  window  26: t= 7200.. 7776 commit 288  obj=    7.087  solve= 0.35s  SoC_end=10.86 kWh
+  window  27: t= 7488.. 8064 commit 288  obj=   12.592  solve= 0.33s  SoC_end=10.12 kWh
+  window  28: t= 7776.. 8352 commit 288  obj=    7.938  solve= 0.34s  SoC_end=10.12 kWh
+  window  29: t= 8064.. 8640 commit 288  obj=    2.069  solve= 0.39s  SoC_end=10.12 kWh
+  window  30: t= 8352.. 8928 commit 288  obj=    4.592  solve= 0.53s  SoC_end=10.46 kWh
+  window  31: t= 8640.. 8928 commit 288  obj=    2.344  solve= 0.24s  SoC_end=10.12 kWh
+--------------------------------------------
+  household_J4_R12000
+--------------------------------------------
+Grid cost:                    $    73.42
+Grid revenue:                 $   116.73
+Net profit excl. degradation: $    43.31
+Degradation cost (model):     $    15.69   (optimiser's internal PWL cost)
+Degradation cost (rainflow):  $    15.07   rel. error 0.041
+Net profit incl. degradation: $    28.25   (uses rainflow cost at R_cell=12000)
+Life loss: 0.126%   rainflow cycles: 79.5   mean depth 0.13   EFC 9.3
+Final SoC: 10.12 kWh   solve time 11.9s
+Plot saved to plots/milp_household_J4_R12000.html
+
+=== MILP run: household_J8_R12000 (8928 intervals, window 48.0h / step 24.0h, HiGHS) ===
+    segment costs c_j ($/kWh): [0.058, 0.1788, 0.3025, 0.4278, 0.5542, 0.6814, 0.8093, 0.9378]
+  window   1: t=    0..  576 commit 288  obj=    7.060  solve= 0.84s  SoC_end=10.12 kWh
+  window   2: t=  288..  864 commit 288  obj=    1.340  solve= 0.99s  SoC_end=12.35 kWh
+  window   3: t=  576.. 1152 commit 288  obj=    2.775  solve= 1.01s  SoC_end=10.12 kWh
+  window   4: t=  864.. 1440 commit 288  obj=    7.699  solve= 0.88s  SoC_end=10.12 kWh
+  window   5: t= 1152.. 1728 commit 288  obj=    8.617  solve= 0.65s  SoC_end=10.12 kWh
+  window   6: t= 1440.. 2016 commit 288  obj=    5.068  solve= 0.62s  SoC_end=10.43 kWh
+  window   7: t= 1728.. 2304 commit 288  obj=    2.473  solve= 0.72s  SoC_end=10.86 kWh
+  window   8: t= 2016.. 2592 commit 288  obj=    2.293  solve= 0.83s  SoC_end=11.13 kWh
+  window   9: t= 2304.. 2880 commit 288  obj=    1.233  solve= 0.78s  SoC_end=10.59 kWh
+  window  10: t= 2592.. 3168 commit 288  obj=    2.934  solve= 0.70s  SoC_end=10.84 kWh
+  window  11: t= 2880.. 3456 commit 288  obj=    4.258  solve= 0.77s  SoC_end=10.17 kWh
+  window  12: t= 3168.. 3744 commit 288  obj=    6.460  solve= 1.17s  SoC_end=10.88 kWh
+  window  13: t= 3456.. 4032 commit 288  obj=    8.982  solve= 0.77s  SoC_end= 8.44 kWh
+  window  14: t= 3744.. 4320 commit 288  obj=  -32.490  solve= 0.88s  SoC_end= 8.44 kWh
+  window  15: t= 4032.. 4608 commit 288  obj=  -35.220  solve= 0.71s  SoC_end= 9.21 kWh
+  window  16: t= 4320.. 4896 commit 288  obj=    2.785  solve= 1.17s  SoC_end= 8.44 kWh
+  window  17: t= 4608.. 5184 commit 288  obj=    2.471  solve= 0.93s  SoC_end= 8.44 kWh
+  window  18: t= 4896.. 5472 commit 288  obj=    2.140  solve= 0.89s  SoC_end= 9.96 kWh
+  window  19: t= 5184.. 5760 commit 288  obj=    1.934  solve= 0.64s  SoC_end=10.20 kWh
+  window  20: t= 5472.. 6048 commit 288  obj=   -0.393  solve= 1.56s  SoC_end= 8.44 kWh
+  window  21: t= 5760.. 6336 commit 288  obj=  -57.220  solve= 0.85s  SoC_end= 8.44 kWh
+  window  22: t= 6048.. 6624 commit 288  obj=  -55.888  solve= 0.89s  SoC_end= 8.44 kWh
+  window  23: t= 6336.. 6912 commit 288  obj=   -0.571  solve= 0.99s  SoC_end=11.57 kWh
+  window  24: t= 6624.. 7200 commit 288  obj=    2.120  solve= 0.81s  SoC_end=10.12 kWh
+  window  25: t= 6912.. 7488 commit 288  obj=    5.471  solve= 0.69s  SoC_end=10.12 kWh
+  window  26: t= 7200.. 7776 commit 288  obj=    7.003  solve= 0.70s  SoC_end=10.99 kWh
+  window  27: t= 7488.. 8064 commit 288  obj=   12.532  solve= 0.59s  SoC_end=10.12 kWh
+  window  28: t= 7776.. 8352 commit 288  obj=    7.805  solve= 1.00s  SoC_end=10.39 kWh
+  window  29: t= 8064.. 8640 commit 288  obj=    1.846  solve= 1.61s  SoC_end= 9.89 kWh
+  window  30: t= 8352.. 8928 commit 288  obj=    4.299  solve= 0.93s  SoC_end=10.23 kWh
+  window  31: t= 8640.. 8928 commit 288  obj=    2.131  solve= 0.40s  SoC_end= 9.89 kWh
+--------------------------------------------
+  household_J8_R12000
+--------------------------------------------
+Grid cost:                    $    72.29
+Grid revenue:                 $   119.97
+Net profit excl. degradation: $    47.69
+Degradation cost (model):     $    17.01   (optimiser's internal PWL cost)
+Degradation cost (rainflow):  $    16.86   rel. error 0.009
+Net profit incl. degradation: $    30.83   (uses rainflow cost at R_cell=12000)
+Life loss: 0.141%   rainflow cycles: 200.5   mean depth 0.07   EFC 12.8
+Final SoC: 9.89 kWh   solve time 27.0s
+
+=== MILP run: household_J16_R12000 (8928 intervals, window 48.0h / step 24.0h, HiGHS) ===
+    segment costs c_j ($/kWh): [0.0284, 0.0876, 0.1482, 0.2095, 0.2714, 0.3337, 0.3963, 0.4593, 0.5225, 0.5859, 0.6495, 0.7133, 0.7772, 0.8414, 0.9056, 0.97]
+  window   1: t=    0..  576 commit 288  obj=    6.926  solve= 2.04s  SoC_end=10.12 kWh
+  window   2: t=  288..  864 commit 288  obj=    1.153  solve= 2.53s  SoC_end=11.71 kWh
+  window   3: t=  576.. 1152 commit 288  obj=    2.569  solve= 2.86s  SoC_end= 9.28 kWh
+  window   4: t=  864.. 1440 commit 288  obj=    7.552  solve= 1.30s  SoC_end= 9.28 kWh
+  window   5: t= 1152.. 1728 commit 288  obj=    8.493  solve= 1.46s  SoC_end=10.12 kWh
+  window   6: t= 1440.. 2016 commit 288  obj=    4.954  solve= 1.54s  SoC_end=11.09 kWh
+  window   7: t= 1728.. 2304 commit 288  obj=    2.288  solve= 2.17s  SoC_end=10.76 kWh
+  window   8: t= 2016.. 2592 commit 288  obj=    2.222  solve= 1.81s  SoC_end=11.00 kWh
+  window   9: t= 2304.. 2880 commit 288  obj=    1.054  solve= 1.47s  SoC_end= 9.28 kWh
+  window  10: t= 2592.. 3168 commit 288  obj=    2.874  solve= 1.94s  SoC_end=10.78 kWh
+  window  11: t= 2880.. 3456 commit 288  obj=    4.067  solve= 1.37s  SoC_end= 9.32 kWh
+  window  12: t= 3168.. 3744 commit 288  obj=    6.347  solve= 1.98s  SoC_end=10.23 kWh
+  window  13: t= 3456.. 4032 commit 288  obj=    8.991  solve= 1.07s  SoC_end= 8.44 kWh
+  window  14: t= 3744.. 4320 commit 288  obj=  -32.637  solve= 1.44s  SoC_end= 8.44 kWh
+  window  15: t= 4032.. 4608 commit 288  obj=  -35.326  solve= 1.30s  SoC_end= 9.21 kWh
+  window  16: t= 4320.. 4896 commit 288  obj=    2.729  solve= 1.92s  SoC_end= 8.44 kWh
+  window  17: t= 4608.. 5184 commit 288  obj=    2.385  solve= 2.69s  SoC_end= 8.44 kWh
+  window  18: t= 4896.. 5472 commit 288  obj=    2.062  solve= 1.59s  SoC_end= 9.67 kWh
+  window  19: t= 5184.. 5760 commit 288  obj=    1.681  solve= 1.38s  SoC_end=10.20 kWh
+  window  20: t= 5472.. 6048 commit 288  obj=   -0.568  solve= 1.36s  SoC_end= 9.28 kWh
+  window  21: t= 5760.. 6336 commit 288  obj=  -57.422  solve= 1.96s  SoC_end= 8.44 kWh
+  window  22: t= 6048.. 6624 commit 288  obj=  -56.065  solve= 2.00s  SoC_end= 8.44 kWh
+  window  23: t= 6336.. 6912 commit 288  obj=   -0.715  solve= 2.76s  SoC_end=11.83 kWh
+  window  24: t= 6624.. 7200 commit 288  obj=    1.880  solve= 2.95s  SoC_end=10.04 kWh
+  window  25: t= 6912.. 7488 commit 288  obj=    5.350  solve= 1.95s  SoC_end=10.97 kWh
+  window  26: t= 7200.. 7776 commit 288  obj=    6.899  solve= 2.17s  SoC_end=11.00 kWh
+  window  27: t= 7488.. 8064 commit 288  obj=   12.418  solve= 1.51s  SoC_end=10.80 kWh
+  window  28: t= 7776.. 8352 commit 288  obj=    7.576  solve= 1.64s  SoC_end=10.52 kWh
+  window  29: t= 8064.. 8640 commit 288  obj=    1.608  solve= 1.87s  SoC_end= 9.33 kWh
+  window  30: t= 8352.. 8928 commit 288  obj=    4.183  solve= 3.81s  SoC_end= 9.33 kWh
+  window  31: t= 8640.. 8928 commit 288  obj=    2.166  solve= 0.71s  SoC_end= 9.33 kWh
+--------------------------------------------
+  household_J16_R12000
+--------------------------------------------
+Grid cost:                    $    72.42
+Grid revenue:                 $   121.04
+Net profit excl. degradation: $    48.62
+Degradation cost (model):     $    16.02   (optimiser's internal PWL cost)
+Degradation cost (rainflow):  $    16.67   rel. error 0.039
+Net profit incl. degradation: $    31.95   (uses rainflow cost at R_cell=12000)
+Life loss: 0.139%   rainflow cycles: 301.5   mean depth 0.05   EFC 15.0
+Final SoC: 9.33 kWh   solve time 58.6s
+--------------------------------------------
+  state_machine (buy 69.7 / sell 127.2, 20 kWh)
+--------------------------------------------
+Grid cost:                    $   126.34
+Grid revenue:                 $   179.50
+Net profit excl. degradation: $    53.16
+Degradation cost (model):     $      nan   (optimiser's internal PWL cost)
+Degradation cost (rainflow):  $   136.70   rel. error nan
+Net profit incl. degradation: $   -83.53   (uses rainflow cost at R_cell=12000)
+Life loss: 1.139%   rainflow cycles: 63.5   mean depth 0.41   EFC 25.6
+Final SoC: 18.16 kWh   solve time nans
+
+
+==== Summary (JAN25) ====
+     scenario  r_cell  n_segments  grid_cost  grid_revenue  net_profit_ex_degradation  degradation_cost_model  degradation_cost_rainflow  rainflow_relative_error  net_profit_incl_degradation  life_loss_pct  equivalent_full_cycles  final_soc_kwh  solve_seconds
+    bess_only     0.0           1     35.149       171.375                    136.226                   0.000                    139.314                      NaN                       -3.088          1.161                  25.382          6.750          4.018
+    bess_only 12000.0           1     -0.284       103.693                    103.977                   5.905                      1.677                    2.520                      102.300          0.014                   0.886          6.750          2.835
+    bess_only 12000.0           2      0.355       106.269                    105.914                   4.449                      2.937                    0.515                      102.977          0.024                   1.363          6.750          4.864
+    bess_only 12000.0           4      4.768       118.742                    113.974                   7.621                      6.772                    0.125                      107.203          0.056                   4.768          6.750         14.849
+    bess_only 12000.0           8      5.293       118.706                    113.414                   5.578                      5.219                    0.069                      108.195          0.043                   5.047          6.750         24.230
+    bess_only 12000.0          16      6.045       119.593                    113.547                   5.026                      5.162                    0.026                      108.385          0.043                   5.429          6.750         38.815
+    household     0.0           1     54.493       149.535                     95.042                   0.000                    194.618                      NaN                      -99.576          1.622                  42.423          6.750         14.434
+    household 12000.0           1     94.078       108.477                     14.399                   6.474                      2.395                    1.703                       12.004          0.020                   0.971         13.500          2.996
+    household 12000.0           2     76.109       119.630                     43.521                  26.089                     22.613                    0.154                       20.908          0.188                   7.993          7.279          6.011
+    household 12000.0           4     73.422       116.733                     43.312                  15.686                     15.066                    0.041                       28.245          0.126                   9.322         10.125         11.862
+    household 12000.0           8     72.286       119.973                     47.687                  17.014                     16.861                    0.009                       30.826          0.141                  12.750          9.895         26.956
+    household 12000.0          16     72.424       121.042                     48.619                  16.022                     16.669                    0.039                       31.950          0.139                  15.006          9.330         58.571
+state_machine 12000.0           0    126.337       179.501                     53.164                     NaN                    136.696                      NaN                      -83.532          1.139                  25.593         18.160            NaN
+
+Written results/milp_summary.csv   total wall time 253s
+Plot saved to plots/milp_j_sweep.html
+
+==== Export limit study (household, J=4) ====
+ export_limit_kw  net_profit_ex_degradation  degradation_cost_rainflow  net_profit_incl_degradation  value_added  value_added_spike  value_added_non_spike  max_grid_export_kw
+             NaN                      43.31                      15.07                        28.25       135.11             101.55                  33.56               13.99
+            10.0                      35.16                      15.01                        20.14       126.95              93.65                  33.30               10.00
+             5.0                     -10.63                      14.37                       -25.00        81.17              49.00                  32.16                5.00
+Written results/milp_export_limit.csv

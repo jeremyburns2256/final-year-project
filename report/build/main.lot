@@ -1,0 +1,21 @@
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {3.1}{\ignorespaces Battery parameters\relax }}{19}{table.caption.13}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {7.1}{\ignorespaces Optimised Thresholds\relax }}{35}{table.caption.21}%
+\contentsline {table}{\numberline {7.2}{\ignorespaces State Machine Results January 2025\relax }}{35}{table.caption.22}%
+\contentsline {table}{\numberline {7.3}{\ignorespaces Perfect-foresight MILP, household scenario, January 2025. Error is the relative difference between the degradation cost inside the MILP and the rainflow cost. The state machine uses thresholds of \$69.70 and \$127.20 per MWh on a 20\nobreakspace {}kWh lossless battery and is included for qualitative comparison only.\relax }}{37}{table.caption.25}%
+\contentsline {table}{\numberline {7.4}{\ignorespaces Perfect-foresight MILP, battery-only scenario, January 2025.\relax }}{37}{table.caption.26}%
+\contentsline {table}{\numberline {7.5}{\ignorespaces Forecast accuracy and dispatch value, household scenario, $J=4$, January 2025. MAE is the mean absolute error of the price forecast over all lead times and rMAE is the MAE relative to the seasonal-naive forecast.\relax }}{41}{table.caption.31}%
+\contentsline {table}{\numberline {7.6}{\ignorespaces Retail plans, January 2025 (\$). The bill without a battery is \$168.21 on the single-rate plan and \$196.53 on the time-of-use plan.\relax }}{43}{table.caption.38}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {8.1}{\ignorespaces Value added by the battery over the no-battery household, before aging, by the spot price of the interval in which it was earned (\$).\relax }}{44}{table.caption.39}%
+\contentsline {table}{\numberline {8.2}{\ignorespaces Dispatch value under synthetic forecast error, household scenario, $J=4$, January 2025. Each run perturbs one input; the other is perfect. Value lost is measured against perfect foresight on the same loop.\relax }}{45}{table.caption.42}%
+\contentsline {table}{\numberline {8.3}{\ignorespaces Perfect-foresight MILP, household scenario, $J=4$, under a grid export limit, January 2025 (\$). Value added is measured against the no-battery household and is before aging.\relax }}{47}{table.caption.48}%
+\contentsline {table}{\numberline {8.4}{\ignorespaces Value added by the battery over the no-battery household, January 2025 (\$).\relax }}{48}{table.caption.50}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }

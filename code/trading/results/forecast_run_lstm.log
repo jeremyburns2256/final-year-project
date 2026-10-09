@@ -1,0 +1,58 @@
+reusing saved results for ['perfect', 'naive', 'aemo'], running ['lstm']
+
+=== mpc_household_J4_lstm: 8928 intervals, horizon 24.0h, HiGHS ===
+  [lstm] t=    0/8928  SoC= 6.73 kWh  cum solve=    0.2s
+  [lstm] t=  288/8928  SoC=10.77 kWh  cum solve=   61.8s
+  [lstm] t=  576/8928  SoC=11.33 kWh  cum solve=  114.5s
+  [lstm] t=  864/8928  SoC= 9.76 kWh  cum solve=  170.2s
+  [lstm] t= 1152/8928  SoC= 9.76 kWh  cum solve=  231.9s
+  [lstm] t= 1440/8928  SoC=10.12 kWh  cum solve=  283.5s
+  [lstm] t= 1728/8928  SoC=10.12 kWh  cum solve=  337.2s
+  [lstm] t= 2016/8928  SoC=10.15 kWh  cum solve=  389.8s
+  [lstm] t= 2304/8928  SoC=10.12 kWh  cum solve=  445.1s
+  [lstm] t= 2592/8928  SoC=10.01 kWh  cum solve=  501.6s
+  [lstm] t= 2880/8928  SoC=10.01 kWh  cum solve=  564.5s
+  [lstm] t= 3168/8928  SoC=10.01 kWh  cum solve=  623.0s
+  [lstm] t= 3456/8928  SoC=10.08 kWh  cum solve=  679.8s
+  [lstm] t= 3744/8928  SoC= 7.06 kWh  cum solve=  739.1s
+  [lstm] t= 4032/8928  SoC= 5.77 kWh  cum solve=  792.6s
+  [lstm] t= 4320/8928  SoC= 6.69 kWh  cum solve=  854.3s
+  [lstm] t= 4608/8928  SoC= 8.93 kWh  cum solve=  914.6s
+  [lstm] t= 4896/8928  SoC=10.80 kWh  cum solve=  965.7s
+  [lstm] t= 5184/8928  SoC=10.12 kWh  cum solve= 1019.6s
+  [lstm] t= 5472/8928  SoC=10.12 kWh  cum solve= 1072.9s
+  [lstm] t= 5760/8928  SoC= 8.78 kWh  cum solve= 1127.1s
+  [lstm] t= 6048/8928  SoC= 8.90 kWh  cum solve= 1183.2s
+  [lstm] t= 6336/8928  SoC= 7.06 kWh  cum solve= 1241.5s
+  [lstm] t= 6624/8928  SoC=10.85 kWh  cum solve= 1298.6s
+  [lstm] t= 6912/8928  SoC=10.12 kWh  cum solve= 1363.5s
+  [lstm] t= 7200/8928  SoC=11.55 kWh  cum solve= 1435.8s
+  [lstm] t= 7488/8928  SoC=11.80 kWh  cum solve= 1499.0s
+  [lstm] t= 7776/8928  SoC=10.12 kWh  cum solve= 1548.6s
+  [lstm] t= 8064/8928  SoC=10.12 kWh  cum solve= 1594.4s
+  [lstm] t= 8352/8928  SoC= 9.05 kWh  cum solve= 1648.8s
+  [lstm] t= 8640/8928  SoC= 9.35 kWh  cum solve= 1700.6s
+  [lstm] t= 8927/8928  SoC= 9.82 kWh  cum solve= 1725.5s
+Plot saved to plots/mpc_household_J4_lstm.html
+--------------------------------------------
+  mpc_household_J4_lstm
+--------------------------------------------
+Grid cost:                    $    87.23
+Grid revenue:                 $   120.52
+Net profit excl. degradation: $    33.29
+Degradation cost (model):     $    17.87   (optimiser's internal PWL cost)
+Degradation cost (rainflow):  $    17.35   rel. error 0.030
+Net profit incl. degradation: $    15.94   (uses rainflow cost at R_cell=12000)
+Life loss: 0.145%   rainflow cycles: 51.5   mean depth 0.20   EFC 9.4
+Final SoC: 9.82 kWh   solve time 1725.5s
+Price MAE 44.6 $/MWh (rMAE vs naive 0.726; 1h 59.7, 24h 46.0)   net-local MAE 1.15 kW
+
+
+==== Forecast study (JAN25, household J=4, R_cell=12000) ====
+forecaster  net_profit_ex_degradation  degradation_cost_rainflow  net_profit_incl_degradation  profit_gap_to_perfect  profit_pct_of_perfect  life_loss_pct  equivalent_full_cycles  price_mae  price_median_ae  price_mae_clip1000  price_rmae_vs_naive  price_mae_1h  price_mae_24h  price_fc_spike_frac  net_local_mae_kw  solve_seconds
+   perfect                     43.847                     15.105                       28.741                  0.000                100.000          0.126                   9.352      0.000            0.000              11.598                0.000         0.000          0.000                0.001             0.000       2466.534
+     naive                     31.706                     15.786                       15.920                 12.822                 55.390          0.132                   9.095     61.342           25.300              53.174                1.000        79.711         61.134                0.004             1.154       2893.036
+      aemo                     30.244                     15.571                       14.673                 14.068                 51.053          0.130                   9.080    161.561           16.410              48.949                2.634       112.817        187.979                0.010             1.154       2943.926
+      lstm                     33.293                     17.350                       15.943                 12.798                 55.471          0.145                   9.402     44.551           22.028              44.748                0.726        59.713         45.989                0.000             1.154       1725.521
+
+Written results/forecast_summary.csv   wall time 2161s

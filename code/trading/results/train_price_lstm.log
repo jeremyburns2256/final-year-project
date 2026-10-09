@@ -1,0 +1,17 @@
+/home/jeremy/Documents/Projects/fyp/final-year-project/trading/forecasting/train_price_lstm.py:100: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+  tot += float(loss); nb += 1
+half-hourly series 2015-01-01 00:00:00 .. 2024-12-31 23:30:00  n=175344  filled=0
+train windows 157393  val windows 17521  config LstmConfig(lookback=336, horizon=48, hidden=64, layers=2, dropout=0.2, head_hidden=128, lr=0.001, batch_size=256, epochs=30, patience=5, huber_delta=1.0, demand_mean=7812.77868044992, demand_std=1282.4954085350048, seed=0)
+epoch   1  train 0.0414  val huber 0.0760  val MAE 73.0 (naive 103.1, rMAE 0.708)  1h 67.6/103.1  24h 74.0/103.1  173s
+epoch   2  train 0.0274  val huber 0.0701  val MAE 71.2 (naive 103.1, rMAE 0.690)  1h 65.8/103.1  24h 73.3/103.1  262s
+epoch   3  train 0.0253  val huber 0.0692  val MAE 70.7 (naive 103.1, rMAE 0.685)  1h 64.3/103.1  24h 72.8/103.1  427s
+epoch   4  train 0.0241  val huber 0.0690  val MAE 70.8 (naive 103.1, rMAE 0.687)  1h 64.0/103.1  24h 72.4/103.1  949s
+epoch   5  train 0.0231  val huber 0.0680  val MAE 70.3 (naive 103.1, rMAE 0.682)  1h 64.5/103.1  24h 72.1/103.1  653s
+epoch   6  train 0.0223  val huber 0.0709  val MAE 71.4 (naive 103.1, rMAE 0.692)  1h 64.6/103.1  24h 73.0/103.1  357s
+epoch   7  train 0.0216  val huber 0.0719  val MAE 71.5 (naive 103.1, rMAE 0.694)  1h 65.0/103.1  24h 72.3/103.1  333s
+epoch   8  train 0.0208  val huber 0.0746  val MAE 72.5 (naive 103.1, rMAE 0.703)  1h 65.9/103.1  24h 73.1/103.1  326s
+epoch   9  train 0.0195  val huber 0.0761  val MAE 73.0 (naive 103.1, rMAE 0.708)  1h 66.5/103.1  24h 73.7/103.1  214s
+epoch  10  train 0.0191  val huber 0.0794  val MAE 74.1 (naive 103.1, rMAE 0.719)  1h 67.6/103.1  24h 74.9/103.1  209s
+early stop at epoch 10, best epoch 5
+saved models/price_lstm.pt  best val huber 0.0680

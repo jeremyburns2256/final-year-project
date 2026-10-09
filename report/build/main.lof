@@ -1,0 +1,24 @@
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {2.1}{\ignorespaces A household with solar and batteries connected to the grid\relax }}{4}{figure.caption.1}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {3.1}{\ignorespaces A standard feedforward neural network with 3 hidden layers \cite {lee_neural_networks_ibm}.\relax }}{12}{figure.caption.2}%
+\contentsline {figure}{\numberline {3.2}{\ignorespaces A basic MDP \cite {yale_cs470_mdp}\relax }}{14}{figure.caption.4}%
+\contentsline {figure}{\numberline {3.3}{\ignorespaces Deep Q-Network \cite {geeksforgeeks_dqn_2025}\relax }}{17}{figure.caption.12}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {5.1}{\ignorespaces Demand in NSW NEM with 30 day rolling average\relax }}{26}{figure.caption.14}%
+\contentsline {figure}{\numberline {5.2}{\ignorespaces Autocorrelation analysis of demand in NSW NEM\relax }}{26}{figure.caption.15}%
+\contentsline {figure}{\numberline {5.3}{\ignorespaces Wholesale price in NSW NEM with 30 day rolling average\relax }}{27}{figure.caption.16}%
+\contentsline {figure}{\numberline {5.4}{\ignorespaces Wholesale price in NSW NEM with 1st and 99th percentile removed\relax }}{27}{figure.caption.17}%
+\contentsline {figure}{\numberline {5.5}{\ignorespaces Autocorrelation analysis of normalised NSW NEM price series\relax }}{28}{figure.caption.18}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {6.1}{\ignorespaces LSTM forecasting framework \cite {kong2019lstm}\relax }}{31}{figure.caption.19}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {7.1}{\ignorespaces A flow chart for state machine trading\relax }}{34}{figure.caption.20}%
+\contentsline {figure}{\numberline {7.2}{\ignorespaces One week period of state machine control January 2025\relax }}{35}{figure.caption.23}%
+\contentsline {figure}{\numberline {7.3}{\ignorespaces Export revenue by dispatch period RRP percentile\relax }}{36}{figure.caption.24}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {8.1}{\ignorespaces Value lost against forecast MAE. The curve is synthetic error on perfect foresight (Table\nobreakspace {}\ref {tab:mpc:noise}); the points are the forecasters of Table\nobreakspace {}\ref {tab:mpc:headline}, each measured against the reference that isolates its input: the price forecasters against the perfect-price case, the seven-day household profile against perfect foresight.\relax }}{46}{figure.caption.43}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
